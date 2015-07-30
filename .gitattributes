@@ -1,0 +1,6 @@
+LAST_COMMIT		ident	export-subst
+*			ident
+*.sh			ident	export-subst
+*.sql			ident	export-subst
+*.txt			ident	export-subst
+.????*.*sh_setup	ident	export-subst

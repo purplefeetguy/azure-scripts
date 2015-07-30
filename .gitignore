@@ -1,0 +1,26 @@
+# Temporary, swap, or save files
+*.ORIG*
+*.swp
+*.tmp
+~$*
+**/tmp/
+#
+# Temporary windows image files
+Thumbs.db
+#
+# Symbolic link files
+*.lnk
+#
+# Archived or Older files no longer needed in repository
+**/ARCHIVE/**/
+# Following required for git backwards compatability (needed for git versions before 1.8.2)
+**/ARCHIVE/ARCHIVE/
+ARCHIVE/20*/
+*/ARCHIVE/20*/
+*/*/ARCHIVE/20*/
+*/*/*/ARCHIVE/20*/
+tmp/
+*/tmp/
+*/*/tmp/
+*/*/*/tmp/
+#
