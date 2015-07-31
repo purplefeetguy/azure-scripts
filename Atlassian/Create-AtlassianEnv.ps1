@@ -37,7 +37,7 @@ $DataCenterPrefix = 'wu'
 
 Set-PSDebug -trace 0 -strict
 # Sign in to your Azure account
-Write-Output " " BOBFIX `
+# Write-Output " " BOBFIX `
 Add-AzureAccount
 
 Set-PSDebug -trace 0 -strict
@@ -50,49 +50,56 @@ $password = 'Welcome!234'
 
 Set-PSDebug -trace 0 -strict
 # Set the current subscription
-Write-Output " " BOBFIX `
+# Write-Output " " BOBFIX `
 Select-AzureSubscription -SubscriptionName $subscriptionName
 
 Set-PSDebug -trace 0 -strict
 
-# Create the storage accounts
+# Create the Standard storage accounts
+$newStdStorageNames = @()
 $newStdStorageTypes = @('web1', 'app1', 'img1')
 
 foreach ($newStorageType in $newStdStorageTypes)
 {
 
 $newStorageName = $ProjectPrefix + $DataCenterPrefix + $newStorageType
+$newStdStorageNames += "$newStorageName"
 Write-Output " " BOBFIX `
 New-AzureStorageAccount -StorageAccountName "$newStorageName" -Location $location -Type Standard_LRS
 
 }
 
+# Create the Standard storage accounts
+$newHighPerfStorageNames = @()
 $newHighPerfStorageTypes = @('db1')
+
 foreach ($newStorageType in $newHighPerfStorageTypes)
 {
 
 $newStorageName = $ProjectPrefix + $DataCenterPrefix + $newStorageType
-Write-Output " " "BOBFIX: Dont know name/Type for High Performance Storage" BOBFIX `
-New-AzureStorageAccount -StorageAccountName "$newStorageName" -Location $location -Type HighPerf_LRS
+$newHighPerfStorageNames += "$newStorageName"
+Write-Output " " BOBFIX `
+New-AzureStorageAccount -StorageAccountName "$newStorageName" -Location $location -Type Premium_LRS
 
 }
 
-Exit
-
 # Set the current storage account (not required but a good practice)
-Write-Output " " BOBFIX `
-Set-AzureSubscription -SubscriptionName $subscriptionName -CurrentStorageAccountName 'pccperfwuweb1'
+# Write-Output " " BOBFIX `
+Set-AzureSubscription -SubscriptionName $subscriptionName -CurrentStorageAccountName "$newStdStorageNames[0]"
+
+Set-PSDebug -trace 1 -strict
 
 # Copy the Windows VM image VHDs to the storage accounts
 $srcStorageAccount = 'ppsssitwuimg1'
-Write-Output " " BOBFIX `
+# Write-Output " " BOBFIX `
 $srcStorageKey = (Get-AzureStorageKey -StorageAccountName $srcStorageAccount).Primary
 Write-Output " " BOBFIX `
 $srcContext = New-AzureStorageContext –StorageAccountName $srcStorageAccount -StorageAccountKey $srcStorageKey
 $srcContainer = 'vhds'
 $srcBlob = '2012R2Image.vhd'
 
-$destStorageAccounts = @('ppssuatptwuapp1', 'ppssuatptwuapp2', 'ppssuatptwudb1', 'ppssuatptwuas1')
+$destStorageAccounts = $newStdStorageNames
+$destStorageAccounts += $newHighPerfStorageNames
 $destContainer = 'vhds'
 $destBlob = '2012R2Image.vhd'
 
