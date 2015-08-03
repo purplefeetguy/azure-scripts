@@ -27,6 +27,17 @@ function Clear-Screen()
     Write-Output " " " " " " " " " " " " " " " " " " " "
 }
 
+function New-Error {
+    [CmdletBinding()]
+    param()
+    $MyErrorRecord = new-object System.Management.Automation.ErrorRecord `
+	"", `
+	"", `
+	([System.Management.Automation.ErrorCategory]::NotSpecified), `
+	""
+    $PSCmdlet.WriteError($MyErrorRecord)
+}
+
 function Write-ColorOutput($ForegroundColor)
 {
     # save the current color
@@ -50,27 +61,50 @@ function Write-ColorOutput($ForegroundColor)
     $host.UI.RawUI.ForegroundColor = $fc
 }
 
-
-function Execute_Command($ecExecute)
+$Global:ecRc = $false
+$Global:ecOutput = $null
+function Execute_Command($ecExecute, $ecCommand)
 {
-    if ($args) {
+    $functionRc = $false
+    $functionLEC = 0
+    $functionError = $null
+    if ($ecCommand -ne $null) {
 	if($ecExecute -eq 0) {
-	    Write-ColorOutput "Green" ">> EXECUTE: $args"
-#Write-Output "	BOBFIX >>>> " `
-	    Invoke-Expression $thisCommand
+	    Write-ColorOutput "Green" ">> EXECUTE: $ecCommand"
+	    $Global:ecOutput = Invoke-Expression $ecCommand -ErrorVariable functionError
+	    $functionRc = $?
+	    $functionLEC = $LASTEXITCODE
+	    if ($functionError -ne $null) {
+	        $functionRc = $false
+	    }
 	}
 	else {
-	    Write-ColorOutput "Yellow" ">> TESTING: $args"
+	    Write-ColorOutput "Yellow" ">> TESTING: $ecCommand"
+	    $functionRc = $true
 	}
     }
 
+Write-ColorOutput "Magenta" ">> RETURN-CODES: [$functionRc|$functionLEC|$functionError]"
+    $Global:ecRc = $functionRc
+
+#--------------------------------------------------
+# Other method?!?
+#    if($functionRc -eq $false) {
+#	New-Error
+#    }
+#--------------------------------------------------
+
 }
+
+$Error.Clear()
 
 Clear-Screen
 
 Set-StrictMode -Version Latest
+# Set-StrictMode -Off
 
 Set-PSDebug -trace 0 -strict
+# Set-PSDebug -Off
 
 # Detailed Debugging:
 # $DebugPreference = 'Continue'
@@ -80,13 +114,14 @@ Set-PSDebug -trace 0 -strict
 # $DebugPreference = 'SilentlyContinue'
 # $VerbosePreference = 'SilentlyContinue'
 
-
 $ProjectPrefix = 'atlass'
 $DataCenterPrefix = 'wu'
 
 # Sign in to your Azure account
 $thisCommand = "Add-AzureAccount"
 Execute_Command 1 "$thisCommand"
+$thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN(A-AA): [$thisRc|$ecRc]"
 
 # Initialize variables
 $subscriptionName = 'Atlassian Subscription (NSEN)'
@@ -99,6 +134,8 @@ $password = 'Welcome!234'
 # Set the current subscription
 $thisCommand = "Select-AzureSubscription -SubscriptionName `"$subscriptionName`""
 Execute_Command 0 "$thisCommand"
+$thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN(S-AS): [$thisRc|$ecRc]"
 
 # Create the Standard storage accounts
 $newStdStorageNames = @()
@@ -107,10 +144,21 @@ $newStdStorageTypes = @('web1', 'app1', 'img1')
 foreach ($newStorageType in $newStdStorageTypes)
 {
 
-$newStorageName = $ProjectPrefix + $DataCenterPrefix + $newStorageType
-$newStdStorageNames += "$newStorageName"
-$thisCommand = "New-AzureStorageAccount -StorageAccountName `"$newStorageName`" -Location `"$location`" -Type Standard_LRS"
-Execute_Command 1 "$thisCommand"
+    $newStorageName = $ProjectPrefix + $DataCenterPrefix + $newStorageType
+    $newStdStorageNames += "$newStorageName"
+    $thisCommand = "New-AzureStorageAccount -StorageAccountName `"$newStorageName`" -Location `"$location`" -Type Standard_LRS"
+
+    $testCommand = "Get-AzureStorageAccount -StorageAccountName `"$newStorageName`""
+    Execute_Command 0 "$testCommand"
+    $thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN(G-ASA): [$thisRc|$ecRc]"
+
+    if ($ecRc -eq $false) {
+	Execute_Command 1 "$thisCommand"
+    }
+    else {
+	Write-ColorOutput "Yellow" "Storage Account `"$newStorageName`" already created!"
+    }
 
 }
 
@@ -121,10 +169,21 @@ $newHighPerfStorageTypes = @('db1')
 foreach ($newStorageType in $newHighPerfStorageTypes)
 {
 
-$newStorageName = $ProjectPrefix + $DataCenterPrefix + $newStorageType
-$newHighPerfStorageNames += "$newStorageName"
-$thisCommand = "New-AzureStorageAccount -StorageAccountName `"$newStorageName`" -Location `"$location`" -Type Premium_LRS"
-Execute_Command 1 "$thisCommand"
+    $newStorageName = $ProjectPrefix + $DataCenterPrefix + $newStorageType
+    $newHighPerfStorageNames += "$newStorageName"
+    $thisCommand = "New-AzureStorageAccount -StorageAccountName `"$newStorageName`" -Location `"$location`" -Type Premium_LRS"
+
+    $testCommand = "Get-AzureStorageAccount -StorageAccountName `"$newStorageName`""
+    Execute_Command 0 "$testCommand"
+    $thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN(G-ASA): [$thisRc|$ecRc]"
+
+    if ($ecRc -eq $false) {
+	Execute_Command 1 "$thisCommand"
+    }
+    else {
+	Write-ColorOutput "Yellow" "Storage Account `"$newStorageName`" already created!"
+    }
 
 }
 
@@ -135,8 +194,10 @@ Execute_Command 0 "$thisCommand"
 # Copy the Windows VM image VHDs to the storage accounts
 $srcStorageAccount = 'ppsssitwuimg1'
 
+# BOBFIX STARTING (DELETE TILL COMPLETE WHEN FIXED By Azure)
 # Write-ColorOutput "Red" "BOBFIX: OVERRIDE Storage device[ppsssitwuimg1]"
 # $srcStorageAccount = 'atlasswudb1'
+# BOBFIX COMPLETE (DELETE Back to STARTING WHEN FIXED By Azure)
 
 # BOBFIX STARTING (DELETE TILL COMPLETE WHEN FIXED By Azure)
 Write-ColorOutput "Red" "BOBFIX: OVERRIDE Select-AzureSubscription [Atlassian Subscription (NSEN)]"
@@ -188,15 +249,16 @@ Write-ColorOutput "Cyan" "BOBFIX-OUTPUT: $destStorageKey"
 Write-ColorOutput "Cyan" "BOBFIX-OUTPUT: $srcContext"
 
 Write-Output "	BOBFIX >>>> " `
-    New-AzureStorageContainer -Name vhds -Context $destContext
+#    New-AzureStorageContainer -Name vhds -Context $destContext
     $thisCommand = "New-AzureStorageContainer -Name vhds -Context $destContext"
     Execute_Command 1 "$thisCommand"
-
-    Write-Host Copying Windows VHD to $destStorageAccount
-
+    $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN(N-ASC): [$thisRc|$ecRc]"
 
 Set-PSDebug -trace 0 -strict
 Exit
+
+    Write-Host Copying Windows VHD to $destStorageAccount
 
 Write-Output "	BOBFIX >>>> " `
     $blob = Start-AzureStorageBlobCopy -Context $srcContext -SrcContainer $srcContainer -SrcBlob $srcBlob `
@@ -381,4 +443,4 @@ Set-AzureReservedIPAssociation -ReservedIPName 'pccperfwudb1vip' -ServiceName 'p
 
 
 Set-PSDebug -trace 0 -strict
-Exit
+ExitzureStorageAccount -StorageAccountName "atlasswuweb1"
