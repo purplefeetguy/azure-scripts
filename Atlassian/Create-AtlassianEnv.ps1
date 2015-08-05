@@ -562,11 +562,9 @@ for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 	    $thisOSType = $theseOSTypes[0]
 	    $thisImageName = $imageWindowsNames[${typeCount}]
 	    $thisEndpointName = $rdpEndpointName
-Set-PSDebug -trace 1 -strict
 	    $thisEndpointPort = $thisRDPPort
 	    $thisRDPPort++
-$thisEndpointPort, $thisRDPPort
-Set-PSDebug -trace 0 -strict
+# $thisEndpointPort, $thisRDPPort
 	}
 	#----------------------------------------------------------------------------------------
 	# Rest of the servers are LINUX
@@ -575,11 +573,9 @@ Set-PSDebug -trace 0 -strict
 	    $thisOSType = $theseOSTypes[1]
 	    $thisImageName = $imageLinuxNames[${typeCount}]
 	    $thisEndpointName = $sshEndpointName
-Set-PSDebug -trace 1 -strict
 	    $thisEndpointPort = $thisSSHPort
 	    $thisSSHPort++
-$thisEndpointPort, $thisSSHPort
-Set-PSDebug -trace 0 -strict
+# $thisEndpointPort, $thisSSHPort
 	}
 	#----------------------------------------------------------------------------------------
 
@@ -587,7 +583,7 @@ Set-PSDebug -trace 0 -strict
 	# Test for DATABASE server, which is HIGH-PERFORMANCE Storage
 	if ($typeCount -eq 2) {
 	    $thisImageSize = $azureHighPerfVMSize
-	    $thisStorageAccount = $newStdStorageNames[${typeCount}], `
+	    $thisStorageAccount = $newHighPerfStorageNames[${highPerfCount}]
 	    $thisDiskType = $databaseLUNType
 	    $thisDiskSize = $databaseLUNSize
 	    $thisDiskTotal = $databaseLUNTotal
@@ -596,7 +592,7 @@ Set-PSDebug -trace 0 -strict
 	# Rest of the servers are STANDARD-PERFORMANCE Storage
 	else {
 	    $thisImageSize = $azureStdVMSize
-	    $thisStorageAccount = $newHighPerfStorageNames[${typeCount}], `
+	    $thisStorageAccount = $newStdStorageNames[${stdCount}]
 	    $thisDiskType = $standardLUNType
 	    $thisDiskSize = $standardLUNSize
 	    $thisDiskTotal = $standardLUNTotal
@@ -645,6 +641,7 @@ Set-PSDebug -trace 0 -strict
 # Create VMs
 for($entryCount = 0; $entryCount -lt $VMList.count; $entryCount++)
 {
+Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
     $vmName = $VMList[${entryCount}][0]
     $tierType = $VMList[${entryCount}][1]
     $serviceName = $VMList[${entryCount}][2]
