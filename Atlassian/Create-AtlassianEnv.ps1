@@ -538,6 +538,8 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ARIP]: $Global:ecOutput'
 }
 
 
+$stdCount = 0
+$highPerfCount = 0
 $thisRDPPort = $rdpEndpointPort
 $thisSSHPort = $sshEndpointPort
 for ($typeCount=0;$typeCount -lt 3;$typeCount++)
@@ -585,6 +587,7 @@ Set-PSDebug -trace 0 -strict
 	# Test for DATABASE server, which is HIGH-PERFORMANCE Storage
 	if ($typeCount -eq 2) {
 	    $thisImageSize = $azureHighPerfVMSize
+	    $thisStorageAccount = $newStdStorageNames[${typeCount}], `
 	    $thisDiskType = $databaseLUNType
 	    $thisDiskSize = $databaseLUNSize
 	    $thisDiskTotal = $databaseLUNTotal
@@ -593,6 +596,7 @@ Set-PSDebug -trace 0 -strict
 	# Rest of the servers are STANDARD-PERFORMANCE Storage
 	else {
 	    $thisImageSize = $azureStdVMSize
+	    $thisStorageAccount = $newHighPerfStorageNames[${typeCount}], `
 	    $thisDiskType = $standardLUNType
 	    $thisDiskSize = $standardLUNSize
 	    $thisDiskTotal = $standardLUNTotal
@@ -608,12 +612,22 @@ Set-PSDebug -trace 0 -strict
 			$thisImageName, `
 			$thisImageSize, `
 			$newAVSet, `
-			$newStdStorageNames[${typeCount}], `
+			$thisStorageAccount, `
 			$thisDiskType, $thisDiskSize, $thisDiskTotal, `
 			$newSubnets[${typeCount}], `
 			$newIPAddrs[${typeCount}][${entryCount}], `
 			$thisEndpointName, $thisEndpointPort `
 		))
+    }
+    #----------------------------------------------------------------------------------------
+    # Test for DATABASE server, which is HIGH-PERFORMANCE Storage
+    if ($typeCount -eq 2) {
+	$highPerfCount++
+    }
+    #----------------------------------------------------------------------------------------
+    # Rest of the servers are STANDARD-PERFORMANCE Storage
+    else {
+	$stdCount++
     }
 }
 
