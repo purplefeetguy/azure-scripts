@@ -199,7 +199,9 @@ $newIPAddrs = $newWebIPAddrs, $newAppIPAddrs, $newDBIPAddrs
 #-----------------------------------------------------------------------------------------------------
 # Initialize Storage Type name extensions
 $newStdStorageNames = @()
-$newStdStorageTypes = @('web1', 'app1', 'img1')
+Write-ColorOutput "Red" "BOBFIX-CHANGE remove img1 storage account"
+# $newStdStorageTypes = @('web1', 'app1', 'img1')
+$newStdStorageTypes = @('web1', 'app1')
 $newHighPerfStorageNames = @()
 $newHighPerfStorageTypes = @('db1')
 $standardLUNType = "Standard"
@@ -227,8 +229,11 @@ $windowsImageName = '2012R2Image.vhd'
 $linuxImageName = 'LinuxImage.vhd'
 $imageNames = $windowsImageName, $linuxImageName
 
-$imageWindowsNames = @('wagswin2012r2app1', 'wagswin2012r2app2', 'wagswin2012r2db1', 'wagswin2012r2as1')
-$imageLinuxNames = @('wagslinuxweb1', 'wagslinuxapp2', 'wagslinuxdb1', 'wagslinuxdb2')
+Write-ColorOutput "Red" "BOBFIX-CHANGE Update Image Names per where they are going"
+# $imageWindowsNames = @('wagswin2012r2app1', 'wagswin2012r2app2', 'wagswin2012r2db1', 'wagswin2012r2as1')
+# $imageLinuxNames = @('wagslinuxweb1', 'wagslinuxapp2', 'wagslinuxdb1', 'wagslinuxdb2')
+$imageWindowsNames = @('wagswin2012r2app1', 'wagswin2012r2app2', 'wagswin2012r2db1')
+$imageLinuxNames = @('wagslinuxweb1', 'wagslinuxapp2', 'wagslinuxdb1')
 $imageFamily = 'Walgreens'
 
 #-----------------------------------------------------------------------------------------------------
@@ -270,9 +275,9 @@ $dns = $null
 # Begin Azure work
 ######################################################################################################
 # Sign in to your Azure account
-# Write-ColorOutput "Red" "BOBFIX-ENABLE[A-AA]"
+Write-ColorOutput "Red" "BOBFIX-ENABLE[A-AA]"
 $thisCommand = "Add-AzureAccount"
-Execute_Command 0 "$thisCommand"; $thisRc=$?
+Execute_Command 1 "$thisCommand"; $thisRc=$?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-AA]: [$thisRc|$Global:ecRc]"
 if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
@@ -417,8 +422,10 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-ASCr]: [$thisRc|$Global:ecRc]"
 	if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ASB]: [$thisRc|$Global:ecRc]"
 
+#Write-ColorOutput "Red" "BOBFIX-ENABLE[S-ASBC]"
 # if ( $newHighPerfStorageNames -contains $destStorageAccount) { Set-PSDebug -trace 1 -strict }
 	if ($Global:ecRc -eq $false) {
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-ASCx]: $destContext'
 	    Write-Host Copying $imageName to $destStorageAccount
 Write-ColorOutput "Red" "BOBFIX-ERROR[G-ASB]: [$Global:ecVariableError]"
 	    Write-ColorOutput "Green" ">> EXECUTE: `$blob = $thisCommand"
@@ -641,7 +648,7 @@ Set-PSDebug -trace 0 -strict
 # Create VMs
 for($entryCount = 0; $entryCount -lt $VMList.count; $entryCount++)
 {
-# Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
+Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
     $vmName = $VMList[${entryCount}][0]
     $tierType = $VMList[${entryCount}][1]
     $serviceName = $VMList[${entryCount}][2]
