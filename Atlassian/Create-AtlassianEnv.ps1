@@ -17,6 +17,7 @@
 
 .CHANGELOG
     1.0  7/27/2015  Ed Mondek  Initial commit
+    1.0  7/31/2015  Robert Seward  Initial commit
 #>
 
 function Clear-Ten()
@@ -41,6 +42,29 @@ function New-Error {
 	([System.Management.Automation.ErrorCategory]::NotSpecified), `
 	""
     $PSCmdlet.WriteError($MyErrorRecord)
+}
+
+function Write-ColorOutput-SingleQ($ForegroundColor)
+{
+    # save the current color
+    $fc = $host.UI.RawUI.ForegroundColor
+
+    # set the new color
+    $host.UI.RawUI.ForegroundColor = $ForegroundColor
+
+    # output
+    if ($args) {
+	Invoke-Expression "Write-Output $args"
+    }
+    else {
+	$input | Write-Output
+#	for($wcoCount = 0; $wcoCount -le $args.Length; $wcoCount++) {
+#	    Write-Output "$args[$wcoCount]"
+#	}
+    }
+
+    # restore the original color
+    $host.UI.RawUI.ForegroundColor = $fc
 }
 
 function Write-ColorOutput($ForegroundColor)
@@ -69,12 +93,16 @@ function Write-ColorOutput($ForegroundColor)
 $Global:ecRc = $false
 $Global:ecOutput = $null
 $Global:ecError = $null
-$Global:ecErrorVar = $null
+$Global:ecVariableError = $null
 function Execute_Command($ecExecute, $ecCommand)
 {
+    $Global:ecRc = $true
     $functionRc = $false
     $functionLEC = 0
     $functionError = $null
+    $Global:ecOutput = $null
+    $Global:ecError = $null
+    $Global:ecVariableError = $null
     if ($ecCommand -ne $null) {
 	if($ecExecute -eq 0) {
 	    Write-ColorOutput "Green" ">> EXECUTE: $ecCommand"
@@ -83,7 +111,7 @@ function Execute_Command($ecExecute, $ecCommand)
 	    $functionLEC = $LASTEXITCODE
 	    $Global:ecError = $Global:ecOutput | ?{$_.gettype().Name -eq "ErrorRecord"}
 	    if ($functionError -ne $null) {
-	        $Global:ecErrorVar = $functionError
+	        $Global:ecVariableError = $functionError
 	        $functionRc = $false
 	    }
 	}
@@ -111,14 +139,15 @@ Write-ColorOutput "Magenta" ">> RETURN-CODES: [$functionRc|$functionLEC|$functio
 
 Set-PSDebug -trace 0 -strict
 $Error.Clear()
+$LASTEXITCODE = $null
 
 Clear-Screen
 
 Set-StrictMode -Version Latest
 
-Set-PSDebug -trace 1 -strict
+# Set-PSDebug -trace 1 -strict
 # For Testing here
-Set-PSDebug -trace 0 -strict
+# Set-PSDebug -trace 0 -strict
 # Exit
 
 #
@@ -136,7 +165,7 @@ $DataCenterPrefix = 'wu'
 # Initialize Azure variables
 $subscriptionName = 'Atlassian Subscription (NSEN)'
 $subscriptionPROSsit = 'PROS SIT'
-$vnetName = 'Atlassian-VNet'
+$vnetName = 'WBA Atlassian Azure'
 $location = 'West US'
 $userName = 'wagsadmin'
 $password = 'Welcome!234'
@@ -144,8 +173,11 @@ $password = 'Welcome!234'
 #-----------------------------------------------------------------------------------------------------
 # Initialize Server "Naming" variables
 $theseTiers = @("WEB","APP","DB")
+$tierCounts = @(1,4,1)
+$tierWindowsCounts = @(0,1,0)
 $thisEnv="P"
 $theseOSTypes = @("WINDOWS","LINUX")
+$theseOSPrettyTypes = @("Windows","Linux")
 $theseOSs = @("W","L")
 $theseTypes = @("WB","AP","DB")
 $thisDataCenterLoc="AZ"
@@ -170,6 +202,12 @@ $newStdStorageNames = @()
 $newStdStorageTypes = @('web1', 'app1', 'img1')
 $newHighPerfStorageNames = @()
 $newHighPerfStorageTypes = @('db1')
+$standardLUNType = "Standard"
+$standardLUNSize = 100
+$standardLUNTotal = 2
+$databaseLUNType = "P20"
+$databaseLUNSize = 512
+$databaseLUNTotal = 3
 
 #-----------------------------------------------------------------------------------------------------
 # Initialize Cloud Services array
@@ -177,11 +215,18 @@ $newCloudServices = @()
 
 #-----------------------------------------------------------------------------------------------------
 # Initialize Container names
+$containerName = 'vhds'
 $srcContainer = 'vhds'
 $destContainer = 'vhds'
 
 #-----------------------------------------------------------------------------------------------------
 # Initialize Image names and family
+$srcStorageAccount = 'ppsssitwuimg1'
+
+$windowsImageName = '2012R2Image.vhd'
+$linuxImageName = 'LinuxImage.vhd'
+$imageNames = $windowsImageName, $linuxImageName
+
 $imageWindowsNames = @('wagswin2012r2app1', 'wagswin2012r2app2', 'wagswin2012r2db1', 'wagswin2012r2as1')
 $imageLinuxNames = @('wagslinuxweb1', 'wagslinuxapp2', 'wagslinuxdb1', 'wagslinuxdb2')
 $imageFamily = 'Walgreens'
@@ -195,17 +240,17 @@ $linuxVMList = @()
 #-----------------------------------------------------------------------------------------------------
 # Initialize Endpoints
 $sshEndpointName = 'SSH'
-$sshEndpointPort = '57101'
+$sshEndpointPort = 57101
 #---
 $rdpEndpointName = 'RemoteDesktop'
-$rdpEndpointPort = '57201'
+$rdpEndpointPort = 57201
 #---
 $domainJoin = 'devwalgreenco.net'
 $domain = 'walgreenco'
 #---
 $ou = 'OU=Azure,OU=Servers,DC=devwalgreenco,DC=net'
 #
-Write-ColorOutput "Red" "BOBFIX-NEED-TO-FIX(???): [`$dns UNDEFINED]"
+Write-ColorOutput "Red" "BOBFIX-NEED-TO-FIX[???]: [`$dns UNDEFINED]"
 $dns = $null
 #
 ######################################################################################################
@@ -225,17 +270,18 @@ $dns = $null
 # Begin Azure work
 ######################################################################################################
 # Sign in to your Azure account
+Write-ColorOutput "Red" "BOBFIX-ENABLE[A-AA]"
 $thisCommand = "Add-AzureAccount"
-Execute_Command 1 "$thisCommand"
-$thisRc=$?
-Write-ColorOutput "Magenta" "BOBFIX-RETURN(A-AA): [$thisRc|$ecRc]"
+Execute_Command 1 "$thisCommand"; $thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-AA]: [$thisRc|$Global:ecRc]"
+if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
 
 # Set the current subscription
 $thisCommand = "Select-AzureSubscription -SubscriptionName `"$subscriptionName`""
-Execute_Command 0 "$thisCommand"
-$thisRc=$?
-Write-ColorOutput "Magenta" "BOBFIX-RETURN(S-AS): [$thisRc|$ecRc]"
+Execute_Command 0 "$thisCommand"; $thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-AS]: [$thisRc|$Global:ecRc]"
+if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
 # Create the Standard storage accounts
 foreach ($newStorageType in $newStdStorageTypes)
@@ -249,13 +295,13 @@ foreach ($newStorageType in $newStdStorageTypes)
     $thisCommand = "New-AzureStorageAccount -StorageAccountName `"$newStorageName`" -Location `"$location`" -Type Standard_LRS"
 
     $testCommand = "Get-AzureStorageAccount -StorageAccountName `"$newStorageName`""
-    Execute_Command 0 "$testCommand"
-    $thisRc=$?
-Write-ColorOutput "Magenta" "BOBFIX-RETURN(G-ASA): [$thisRc|$ecRc]"
+    Execute_Command 0 "$testCommand"; $thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ASA]: [$thisRc|$Global:ecRc]"
 
-    if ($ecRc -eq $false) {
-Write-ColorOutput "Red" "BOBFIX-ERROR(G-ASA): [$Global:ecErrorVar]"
-	Execute_Command 0 "$thisCommand"
+    if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Red" "BOBFIX-ERROR[G-ASA]: [$Global:ecVariableError]"
+	Execute_Command 0 "$thisCommand"; $thisRc=$?
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
     }
     else {
 	Write-ColorOutput "Yellow" "Storage Account `"$newStorageName`" already created!"
@@ -276,13 +322,13 @@ foreach ($newStorageType in $newHighPerfStorageTypes)
     $thisCommand = "New-AzureStorageAccount -StorageAccountName `"$newStorageName`" -Location `"$location`" -Type Premium_LRS"
 
     $testCommand = "Get-AzureStorageAccount -StorageAccountName `"$newStorageName`""
-    Execute_Command 0 "$testCommand"
-    $thisRc=$?
-Write-ColorOutput "Magenta" "BOBFIX-RETURN(G-ASA): [$thisRc|$ecRc]"
+    Execute_Command 0 "$testCommand"; $thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ASA]: [$thisRc|$Global:ecRc]"
 
-    if ($ecRc -eq $false) {
-Write-ColorOutput "Red" "BOBFIX-ERROR(G-ASA): [$Global:ecErrorVar]"
-	Execute_Command 0 "$thisCommand"
+    if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Red" "BOBFIX-ERROR[G-ASA]: [$Global:ecVariableError]"
+	Execute_Command 0 "$thisCommand"; $thisRc=$?
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
     }
     else {
 	Write-ColorOutput "Yellow" "Storage Account `"$newStorageName`" already created!"
@@ -293,32 +339,33 @@ $destStorageAccounts += $newHighPerfStorageNames
 
 # Set the current storage account (not required but a good practice)
 $thisCommand = "Set-AzureSubscription -SubscriptionName `"$subscriptionName`" -CurrentStorageAccountName `"$($newStdStorageNames[0])`""
-Execute_Command 0 "$thisCommand"
+Execute_Command 0 "$thisCommand"; $thisRc=$?
+if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
 # Copy the Windows VM image VHDs to the storage accounts
-$srcStorageAccount = 'ppsssitwuimg1'
 
 # NOTE: STARTING (Need to change selected subscription to pull the key in the next step)
 $thisCommand = "Select-AzureSubscription -SubscriptionName `"$subscriptionPROSsit`""
-Execute_Command 0 "$thisCommand"
+Execute_Command 0 "$thisCommand"; $thisRc=$?
+if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 # NOTE: COMPLETE
 
 $thisCommand = "Get-AzureStorageKey -StorageAccountName $srcStorageAccount"
 Write-ColorOutput "Green" ">> EXECUTE: `$srcStorageKey = (Invoke-Expression $thisCommand).Primary"
-$srcStorageKey = (Invoke-Expression $thisCommand).Primary
+$srcStorageKey = (Invoke-Expression $thisCommand).Primary; $thisRc=$?
 Write-ColorOutput "Cyan" "BOBFIX-OUTPUT: $srcStorageKey"
-
 # NOTE STARTING:  (Need to change selected subscription Back to this subscription after retrieving key)
 $thisCommand = "Select-AzureSubscription -SubscriptionName `"$subscriptionName`""
-Execute_Command 0 "$thisCommand"
+Execute_Command 0 "$thisCommand"; $thisRc=$?
+if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 # NOTE: COMPLETE
 
 
-#$srcContext = New-AzureStorageContext –StorageAccountName $srcStorageAccount -StorageAccountKey $srcStorageKey
 $thisCommand = "New-AzureStorageContext –StorageAccountName $srcStorageAccount -StorageAccountKey $srcStorageKey"
 Write-ColorOutput "Green" ">> EXECUTE: `$srcContext = Invoke-Expression $thisCommand"
-$srcContext = Invoke-Expression $thisCommand
-Write-ColorOutput "Cyan" "BOBFIX-OUTPUT: $srcContext"
+$srcContext = Invoke-Expression $thisCommand; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-ASCr]: [$thisRc|$Global:ecRc]"
+if ($thisRc -eq $false) { Exit }
 
 
 Clear-Ten
@@ -327,64 +374,73 @@ Clear-Ten
 foreach ($destStorageAccount in $destStorageAccounts)
 {
 
-#    $destStorageKey = (Get-AzureStorageKey -StorageAccountName $destStorageAccount).Primary
-    $thisCommand = "Get-AzureStorageKey -StorageAccountName $destStorageAccount"
+    $thisCommand = "Get-AzureStorageKey -StorageAccountName "+'$destStorageAccount'
     Write-ColorOutput "Green" ">> EXECUTE: `$destStorageKey = (Invoke-Expression $thisCommand).Primary"
-    $destStorageKey = (Invoke-Expression $thisCommand).Primary
-Write-ColorOutput "Cyan" "BOBFIX-OUTPUT(G-ASK): $destStorageKey"
+    $destStorageKey = (Invoke-Expression $thisCommand).Primary; $thisRc=$?
+Write-ColorOutput "Cyan" "BOBFIX-OUTPUT[G-ASK]: $destStorageKey"
+    if ($thisRc -eq $false) { Exit }
 
-#    $destContext = New-AzureStorageContext –StorageAccountName $destStorageAccount -StorageAccountKey $destStorageKey
     $thisCommand = "New-AzureStorageContext –StorageAccountName $destStorageAccount -StorageAccountKey $destStorageKey"
     Write-ColorOutput "Green" ">> EXECUTE: `$destContext = Invoke-Expression $thisCommand"
-    $destContext = Invoke-Expression $thisCommand
-Write-ColorOutput "Cyan" "BOBFIX-OUTPUT(N-ASCx): $srcContext"
+    $destContext = Invoke-Expression $thisCommand; $thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-ASCr]: [$thisRc|$Global:ecRc]"
+# Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-ASCx]: $destContext'
+    if ($thisRc -eq $false) { Exit }
 
-# Write-Output "	BOBFIX >>>> " `
-#    New-AzureStorageContainer -Name vhds -Context $destContext
-Write-ColorOutput "Red" "BOBFIX: Do a test with Get-AzureStorageContainer"
-    $thisCommand = "New-AzureStorageContainer -Name vhds -Context $destContext"
-    Execute_Command 1 "$thisCommand"
-    $thisRc = $?
-Write-ColorOutput "Magenta" "BOBFIX-RETURN(N-ASCr): [$thisRc|$ecRc]"
+    $thisCommand = "New-AzureStorageContainer -Name $containerName -Context "+'$destContext'
+    $testCommand = "Get-AzureStorageContainer -Name $containerName -Context "+'$destContext'
+    Execute_Command 0 "$testCommand"; $thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ASCr]: [$thisRc|$Global:ecRc]"
 
-    $srcBlob = '2012R2Image.vhd'
-    $destBlob = '2012R2Image.vhd'
-    Write-Host Copying Windows VHD to $destStorageAccount
+    if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Red" "BOBFIX-ERROR[G-ASCr]: [$Global:ecVariableError]"
+	Execute_Command 0 "$thisCommand"; $thisRc=$?
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-ASCr]: [$thisRc|$Global:ecRc]"
+    }
+    else {
+	Write-ColorOutput "Yellow" "Storage Container: `"$containerName`" Storage-Account: `"$destStorageAccount`" already created!"
+    }
 
-    $blob = $null
-#    $blob = Start-AzureStorageBlobCopy -Context $srcContext -SrcContainer $srcContainer -SrcBlob $srcBlob `
-#        -DestContext $destContext -DestContainer $destContainer -DestBlob $destBlob `
-#        -Force
-    $thisCommand = "Start-AzureStorageBlobCopy -Context $srcContext -SrcContainer $srcContainer -SrcBlob $srcBlob `
-        -DestContext $destContext -DestContainer $destContainer -DestBlob $destBlob `
-        -Force"
-    Write-ColorOutput "Yellow" ">> TESTING: `$blob = Invoke-Expression $thisCommand"
-Write-Output "	BOBFIX >>>> " `
-    $blob = Invoke-Expression $thisCommand
-Write-ColorOutput "Cyan" "BOBFIX-OUTPUT(S-ASBC): $blob"
-
-Write-Output "	BOBFIX >>>> `
-    $blob | Get-AzureStorageBlobCopyState -WaitForComplete"
-
-    $srcBlob = 'LinuxImage.vhd'
-    $destBlob = 'LinuxImage.vhd'
-
-    Write-Host Copying Linux VHD to $destStorageAccount
 
     $blob = $null
-#    $blob = Start-AzureStorageBlobCopy -Context $srcContext -SrcContainer $srcContainer -SrcBlob $srcBlob `
-#        -DestContext $destContext -DestContainer $destContainer -DestBlob $destBlob `
-#        -Force
-    $thisCommand = "Start-AzureStorageBlobCopy -Context $srcContext -SrcContainer $srcContainer -SrcBlob $srcBlob `
-        -DestContext $destContext -DestContainer $destContainer -DestBlob $destBlob `
-        -Force"
-    Write-ColorOutput "Yellow" ">> TESTING: `$blob = Invoke-Expression $thisCommand"
-Write-Output "	BOBFIX >>>> " `
-    $blob = Invoke-Expression $thisCommand
-Write-ColorOutput "Cyan" "BOBFIX-OUTPUT(S-ASBC): $blob"
+    foreach ($imageName in $imageNames)
+    {
+	$srcBlob = $imageName
+	$destBlob = $imageName
 
-Write-Output "	BOBFIX >>>> `
-    $blob | Get-AzureStorageBlobCopyState -WaitForComplete"
+	$thisCommand = "Start-AzureStorageBlobCopy -Context "+'$srcContext'+" -SrcContainer $srcContainer -SrcBlob $srcBlob `
+        	-DestContext "+'$destContext'+" -DestContainer $destContainer -DestBlob $destBlob `
+        	-Force"
+	$testCommand = "Get-AzureStorageBlob -Blob $destBlob -Container $containerName -Context "+'$destContext'
+	Execute_Command 0 "$testCommand"; $thisRc=$?
+	if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ASB]: [$thisRc|$Global:ecRc]"
+
+# if ( $newHighPerfStorageNames -contains $destStorageAccount) { Set-PSDebug -trace 1 -strict }
+	if ($Global:ecRc -eq $false) {
+	    Write-Host Copying $imageName to $destStorageAccount
+Write-ColorOutput "Red" "BOBFIX-ERROR[G-ASB]: [$Global:ecVariableError]"
+	    Write-ColorOutput "Green" ">> EXECUTE: `$blob = $thisCommand"
+	    $Global:ecRc = $true
+	    $blob = Start-AzureStorageBlobCopy -Context $srcContext -SrcContainer $srcContainer -SrcBlob $srcBlob `
+        	-DestContext $destContext -DestContainer $destContainer -DestBlob $destBlob `
+        	-Force
+	    $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ASBC]: [$thisRc|$Global:ecRc]"
+
+	    $thisCommand = "Get-AzureStorageBlobCopyState -WaitForComplete"
+	    Write-ColorOutput "Green" ">> EXECUTE: `$blob = $thisCommand"
+	    $Global:ecRc = $true
+	    $blob | Get-AzureStorageBlobCopyState -WaitForComplete
+	    $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ASBCS]: [$thisRc|$Global:ecRc]"
+	    if ($thisRc -eq $false) { Exit }
+	} else {
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ASCr]: $Global:ecOutput'
+	    Write-ColorOutput "Yellow" "Storage Blob: -Blob `"$destBlob`" -Container `"$containerName`" -Context "'"$destContext" already created!'
+	}
+    }
 
 }
 
@@ -396,34 +452,44 @@ Clear-Ten
 $count = 0
 foreach ($destStorageAccount in $destStorageAccounts)
 {
-#    $imageDisk = 'https://{0}.blob.core.windows.net/vhds/2012R2Image.vhd' -f $destStorageAccount
-    $thisCommand = "`'https://{0}.blob.core.windows.net/vhds/2012R2Image.vhd`' -f `$destStorageAccount"
-    Write-ColorOutput "Green" ">> EXECUTE: `$imageDisk = Invoke-Expression $thisCommand"
-    $imageDisk = Invoke-Expression $thisCommand
-Write-ColorOutput "Cyan" "BOBFIX-OUTPUT(https): $imageDisk"
-    $imageName = $imageWindowsNames[$count]
-    $imageLabel = $imageWindowsNames[$count]
-    $imageDescription = 'Walgreens Windows Server 2012 R2 in storage account {0}' -f $destStorageAccount
+    $thisOSType = 0
+    foreach ($osType in $theseOSTypes)
+    {
+	if ($osType -eq "WINDOWS")
+	{
+	    $imageName = $imageWindowsNames[$count]
+	    $imageLabel = $imageWindowsNames[$count]
+	    $imageDescription = 'Walgreens Windows Server 2012 R2 in storage account {0}' -f $destStorageAccount
+	}
+	elseif ($osType -eq "LINUX")
+	{
+	    $imageName = $imageLinuxNames[$count]
+	    $imageLabel = $imageLinuxNames[$count]
+	    $imageDescription = 'Walgreens Linux in storage account {0}' -f $destStorageAccount
+	}
+	$testCommand = "Get-AzureVMImage -ImageName $imageName"
+	Execute_Command 0 "$testCommand"; $thisRc=$?
+	if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ASB]: [$thisRc|$Global:ecRc]"
 
-#    Add-AzureVMImage -ImageName $imageName -MediaLocation $imageDisk -OS Windows -Label $imageLabel -Description $imageDescription -ImageFamily $imageFamily -PublishedDate (Get-Date) -ShowInGui
-    $thisCommand = "Add-AzureVMImage -ImageName $imageName -MediaLocation $imageDisk -OS Windows -Label $imageLabel -Description $imageDescription -ImageFamily $imageFamily -PublishedDate (Get-Date) -ShowInGui"
-    Execute_Command 1 "$thisCommand"
-    $thisRc = $?
-Write-ColorOutput "Magenta" "BOBFIX-RETURN(A-AVMI): [$thisRc|$ecRc]"
+	if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVMI]: [$Global:ecVariableError]"
+	    $osTypePretty = $theseOSPrettyTypes[$thisOSType]
+	    $imageDisk = 'https://{0}.blob.core.windows.net/vhds/{1}' -f $destStorageAccount, $imageNames[$thisOSType]
+	    $thisRc = $?
 
-#    $imageDisk = 'https://{0}.blob.core.windows.net/vhds/LinuxImage.vhd' -f $destStorageAccount
-    $thisCommand = "`'https://{0}.blob.core.windows.net/vhds/LinuxImage.vhd`' -f `$destStorageAccount"
-    Write-ColorOutput "Green" ">> EXECUTE: `$imageDisk = Invoke-Expression $thisCommand"
-    $imageDisk = Invoke-Expression $thisCommand
-Write-ColorOutput "Cyan" "BOBFIX-OUTPUT(https): $imageDisk"
-    $imageName = $imageLinuxNames[$count]
-    $imageLabel = $imageLinuxNames[$count]
-    $imageDescription = 'Walgreens Linux in storage account {0}' -f $destStorageAccount
-#    Add-AzureVMImage -ImageName $imageName -MediaLocation $imageDisk -OS Linux -Label $imageLabel -Description $imageDescription -ImageFamily $imageFamily -PublishedDate (Get-Date) -ShowInGui
-    $thisCommand = "Add-AzureVMImage -ImageName $imageName -MediaLocation $imageDisk -OS Linux -Label $imageLabel -Description $imageDescription -ImageFamily $imageFamily -PublishedDate (Get-Date) -ShowInGui"
-    Execute_Command 1 "$thisCommand"
-    $thisRc = $?
-Write-ColorOutput "Magenta" "BOBFIX-RETURN(A-AVMI): [$thisRc|$ecRc]"
+	    $imageDate = (Get-Date)
+	    $thisCommand = "Add-AzureVMImage -ImageName $imageName -MediaLocation $imageDisk -OS $osTypePretty -Label $imageLabel -Description `"$imageDescription`" -ImageFamily $imageFamily -PublishedDate `"$imageDate`" -ShowInGui"
+	    Execute_Command 0 "$thisCommand"; $thisRc = $?
+	    Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-AVMI]: [$thisRc|$Global:ecRc]"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[A-AVMI]: $Global:ecOutput'
+	    if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+	} else {
+	    Write-ColorOutput "Yellow" "Get-AzureVMImage: -ImageName `"$imageName`" already created!"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVMI]: $Global:ecOutput'
+	}
+	$thisOSType++
+    }
 
     $count++
 }
@@ -436,58 +502,103 @@ Write-ColorOutput "Cyan" "BOBFIX-(Cloud-Services): [$newCloudServices]"
 
 foreach ($newCloudService in $newCloudServices)
 {
-    # Create the cloud services
-    # New-AzureService -ServiceName '$newCloudService' -Location $location
-    $thisCommand = "New-AzureService -ServiceName `"$newCloudService`" -Location $location"
-    Execute_Command 1 "$thisCommand"
-    $thisRc = $?
-Write-ColorOutput "Magenta" "BOBFIX-RETURN(A-AVMI): [$thisRc|$ecRc]"
+    $thisCommand = "New-AzureService -ServiceName `"$newCloudService`" -Location `"$location`""
+    $testCommand = "Get-AzureService -ServiceName $newCloudService"
+    Execute_Command 0 "$testCommand"; $thisRc=$?
+    if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-AS]: [$thisRc|$Global:ecRc]"
 
-    # New-AzureReservedIP -Location $location -ReservedIPName 'pccperfwuweb1vip'
-    $thisCommand = "New-AzureReservedIP -Location $location -ReservedIPName `"${newCloudService}vip`""
-    Execute_Command 1 "$thisCommand"
-    $thisRc = $?
-Write-ColorOutput "Magenta" "BOBFIX-RETURN(A-AVMI): [$thisRc|$ecRc]"
+    if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AS]: [$Global:ecVariableError]"
+	Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-AS]: [$thisRc|$Global:ecRc]"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AS]: $Global:ecOutput'
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+    } else {
+	Write-ColorOutput "Yellow" "Get-AzureService: -ServiceName `"$newCloudService`" already created!"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AS]: $Global:ecOutput'
+    }
+
+    $newReservedName = "${newCLoudService}vip"
+    $thisCommand = "New-AzureReservedIP -Location `"$location`" -ReservedIPName `"$newReservedName`""
+    $testCommand = "Get-AzureReservedIP -ReservedIPName `"$newReservedName`""
+    Execute_Command 0 "$testCommand"; $thisRc=$?
+    if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ARIP]: [$thisRc|$Global:ecRc]"
+
+    if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-ARIP]: [$Global:ecVariableError]"
+	Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ARIP]: [$thisRc|$Global:ecRc]"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[A-ARIP]: $Global:ecOutput'
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ARIP]: $Global:ecOutput'
+    }
 
 }
 
 
-# Set-PSDebug -trace 0 -strict
+$thisRDPPort = $rdpEndpointPort
+$thisSSHPort = $sshEndpointPort
 for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 {
     $thisTier = $theseTiers[${typeCount}]
     $thisType = $theseTypes[${typeCount}]
-    $entryMax = 1
-    if ($typeCount -eq 0 -or $typeCount -eq 2) { $entryMax = 1 }
-    else {
-	if ($typeCount -eq 1) { $entryMax = 4 }
-    }
+    $entryMax = $tierCounts[${typeCount}]
+    $windowsMax = $tierWindowsCounts[${typeCount}]
 
     for ($entryCount=0;$entryCount -lt $entryMax;$entryCount++)
     {
 	$newAVSet = $newCloudServices[${typeCount}] -creplace '[0-9]*$',''
 	$newAVSet = "${newAVSet}avset"
 	$entryCountPrint = $($entryCount+1).ToString("00")
-	if ($typeCount -eq 1 -and $entryCount -eq 0) {
+
+	#----------------------------------------------------------------------------------------
+	# Provision any WINDOWS Servers first, rest of the servers are LINUX
+	if ($entryCount -lt $windowsMax) {
 	    $thisOS = $theseOSs[0]
 	    $thisOSType = $theseOSTypes[0]
 	    $thisImageName = $imageWindowsNames[${typeCount}]
 	    $thisEndpointName = $rdpEndpointName
-	    $thisEndpointPort = $rdpEndpointPort
+Set-PSDebug -trace 1 -strict
+	    $thisEndpointPort = $thisRDPPort
+	    $thisRDPPort++
+$thisEndpointPort, $thisRDPPort
+Set-PSDebug -trace 0 -strict
 	}
+	#----------------------------------------------------------------------------------------
+	# Rest of the servers are LINUX
 	else {
 	    $thisOS = $theseOSs[1]
 	    $thisOSType = $theseOSTypes[1]
 	    $thisImageName = $imageLinuxNames[${typeCount}]
 	    $thisEndpointName = $sshEndpointName
-	    $thisEndpointPort = $sshEndpointPort
+Set-PSDebug -trace 1 -strict
+	    $thisEndpointPort = $thisSSHPort
+	    $thisSSHPort++
+$thisEndpointPort, $thisSSHPort
+Set-PSDebug -trace 0 -strict
 	}
+	#----------------------------------------------------------------------------------------
+
+	#----------------------------------------------------------------------------------------
+	# Test for DATABASE server, which is HIGH-PERFORMANCE Storage
 	if ($typeCount -eq 2) {
 	    $thisImageSize = $azureHighPerfVMSize
+	    $thisDiskType = $databaseLUNType
+	    $thisDiskSize = $databaseLUNSize
+	    $thisDiskTotal = $databaseLUNTotal
 	}
+	#----------------------------------------------------------------------------------------
+	# Rest of the servers are STANDARD-PERFORMANCE Storage
 	else {
 	    $thisImageSize = $azureStdVMSize
+	    $thisDiskType = $standardLUNType
+	    $thisDiskSize = $standardLUNSize
+	    $thisDiskTotal = $standardLUNTotal
 	}
+	#----------------------------------------------------------------------------------------
+
 	$thisVMName = "$thisEnv$thisOS$thisType-$thisDataCenterLoc$thisApplication$entryCountPrint"
 
 	$VMList += @(,($thisVMName, `
@@ -498,6 +609,7 @@ for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 			$thisImageSize, `
 			$newAVSet, `
 			$newStdStorageNames[${typeCount}], `
+			$thisDiskType, $thisDiskSize, $thisDiskTotal, `
 			$newSubnets[${typeCount}], `
 			$newIPAddrs[${typeCount}][${entryCount}], `
 			$thisEndpointName, $thisEndpointPort `
@@ -505,18 +617,18 @@ for ($typeCount=0;$typeCount -lt 3;$typeCount++)
     }
 }
 
-
 Set-PSDebug -trace 1 -strict
+$VMList.count
 $VMList[0]
 $VMList[1]
 $VMList[2]
 $VMList[3]
 $VMList[4]
 $VMList[5]
+Set-PSDebug -trace 0 -strict
 
-$VMList.count
 
-Set-PSDebug -trace 1 -strict
+# Create VMs
 for($entryCount = 0; $entryCount -lt $VMList.count; $entryCount++)
 {
     $vmName = $VMList[${entryCount}][0]
@@ -527,70 +639,109 @@ for($entryCount = 0; $entryCount -lt $VMList.count; $entryCount++)
     $vmSize = $VMList[${entryCount}][5]
     $avSetName = $VMList[${entryCount}][6]
     $storageAccount = $VMList[${entryCount}][7]
-    $subnetName = $VMList[${entryCount}][8]
-    $staticIPAddress = $VMList[${entryCount}][9]
-    $thisEndpointName = $VMList[${entryCount}][10]
-    $thisEndpointPort = $VMList[${entryCount}][11]
+    $thisDiskType = $VMList[${entryCount}][8]
+    $thisDiskSize = $VMList[${entryCount}][9]
+    $thisDiskTotal = $VMList[${entryCount}][10]
+    $subnetName = $VMList[${entryCount}][11]
+    $staticIPAddress = $VMList[${entryCount}][12]
+    $thisEndpointName = $VMList[${entryCount}][13]
+    $thisEndpointPort = $VMList[${entryCount}][14]
     $osDisk = 'https://{0}.blob.core.windows.net/vhds/{1}-os-1.vhd' -f $storageAccount, $vmName
-    $dataDisk1 = 'https://{0}.blob.core.windows.net/vhds/{1}-data-1.vhd' -f $storageAccount, $vmName
-    $dataDisk2 = 'https://{0}.blob.core.windows.net/vhds/{1}-data-2.vhd' -f $storageAccount, $vmName
 
-    if ($osType -eq "LINUX")
-    {
-Write-ColorOutput "Red" "BOBFIX-NEED-TO-FIX(???): [How many disks???]"
-Write-ColorOutput "Yellow" ">> BOBFIX TESTING >>>> " `
+    $testCommand = "Get-AzureVM -Name $vmName -ServiceName $serviceName"
+    Execute_Command 0 "$testCommand"; $thisRc=$?
+    if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-AVM]: [$thisRc|$Global:ecRc]"
 
-Set-PSDebug -trace 0 -strict
-Exit
-	New-AzureVMConfig -Name $vmName -InstanceSize $vmSize -ImageName $imageName -AvailabilitySetName $avSetName -MediaLocation $osDisk | `
-		Add-AzureProvisioningConfig -Linux -LinuxUser $userName -Password $password | `
-		Set-AzureEndpoint -Name $thisEndpointName -PublicPort $thisEndpointPort | `
-		Set-AzureSubnet -SubnetNames $subnetName | `
-		Set-AzureStaticVNetIP -IPAddress $staticIPAddress | `
-		Add-AzureDataDisk -CreateNew -DiskSizeInGB 1000 -DiskLabel 'Data 1' -LUN 1 -MediaLocation $dataDisk1 | `
-		Add-AzureDataDisk -CreateNew -DiskSizeInGB 1000 -DiskLabel 'Data 2' -LUN 2 -MediaLocation $dataDisk2 | `
-		New-AzureVM -ServiceName $serviceName -VNetName $vnetName
+#if ( $newHighPerfStorageNames -contains $storageAccount) { Write-ColorOutput "RED" ">> SKIPPING: $vmname DUE to different execution steps"; continue }
+    if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
 
-    }
-    else
-    {
-	if ($osType -eq "WINDOWS")
+	$thisCommand = "New-AzureVMConfig -Name $vmName -InstanceSize $vmSize -ImageName $imageName -AvailabilitySetName $avSetName -MediaLocation $osDisk"
+	Write-ColorOutput "Green" ">> EXECUTE: `$vm1 = Invoke-Expression $thisCommand"
+	$vm1 = Invoke-Expression $thisCommand; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-VMC]: [$thisRc|$Global:ecRc]"
+	if ($thisRc -eq $false) { Exit }
+
+	if ($osType -eq "LINUX")
 	{
-Write-ColorOutput "Red" "BOBFIX-NEED-TO-FIX(???): [How many disks???]"
-Write-ColorOutput "Red" "BOBFIX-NEED-TO-FIX(???): [`$dns UNDEFINED]"
-Write-ColorOutput "Yellow" ">> BOBFIX TESTING >>>> " `
-	New-AzureVMConfig -Name $vmName -InstanceSize $vmSize -ImageName $imageName -AvailabilitySetName $avSetName -MediaLocation $osDisk | `
+	    $thisCommand = "Add-AzureProvisioningConfig -vm "+'$vm1'+" -Linux -LinuxUser $userName -Password $password"
+	} elseif ($osType -eq "WINDOWS")
+	{
+	    $thisCommand = "Add-AzureProvisioningConfig -vm "+'$vm1'+" -Windows -AdminUsername $userName -Password $password -NoWinRMEndpoint"
+	}
+	Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-APC]: [$thisRc|$Global:ecRc]"
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
-Set-PSDebug -trace 0 -strict
-Exit
-		Add-AzureProvisioningConfig -WindowsDomain -JoinDomain $domainJoin -Domain $domain -AdminUsername $userName -Password $password -MachineObjectOU $ou -NoWinRMEndpoint | `
-		Set-AzureEndpoint -Name $rdpEndpointName -PublicPort $rdpEndpointPort | `
-		Set-AzureSubnet -SubnetNames $subnetName | `
-		Set-AzureStaticVNetIP -IPAddress $staticIPAddress | `
-		Add-AzureDataDisk -CreateNew -DiskSizeInGB 1000 -DiskLabel 'Data 1' -LUN 1 -MediaLocation $dataDisk1 | `
-		Add-AzureDataDisk -CreateNew -DiskSizeInGB 1000 -DiskLabel 'Data 2' -LUN 2 -MediaLocation $dataDisk2 | `
-		New-AzureVM -ServiceName $serviceName -VNetName $vnetName -DnsSettings $dns
+	$thisCommand = "Set-AzureEndpoint -Name $thisEndpointName -vm "+'$vm1'+" -PublicPort $thisEndpointPort"
+	Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-AE]: [$thisRc|$Global:ecRc]"
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+
+	$thisCommand = "Set-AzureSubnet -SubnetNames $subnetName -VM "+'$vm1'
+	Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-AS]: [$thisRc|$Global:ecRc]"
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+
+	$thisCommand = "Set-AzureStaticVNetIP -IPAddress $staticIPAddress -VM "+'$vm1'
+	Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ASVNIP]: [$thisRc|$Global:ecRc]"
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+
+	for($thisDiskCount = 1; $thisDiskCount -le $thisDiskTotal; $thisDiskCount++)
+	{
+	    $dataDisk = 'https://{0}.blob.core.windows.net/vhds/{1}-data-{2}.vhd' -f $storageAccount, $vmName, $thisDiskCount
+	    $thisDiskLabel = "Data_$thisDiskCount"
+	    $thisCommand = "Add-AzureDataDisk -CreateNew -DiskSizeInGB $thisDiskSize -DiskLabel $thisDiskLabel -LUN $thisDiskCount -VM "+'$vm1'+" -MediaLocation $dataDisk"
+	    Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ADD]: [$thisRc|$Global:ecRc]"
+	    if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
 	}
+
+	$thisCommand = "New-AzureVM -ServiceName $serviceName -vm "+'$vm1'+" -VNetName `"$vnetName`""
+#	if ($osType -eq "WINDOWS") { $thisCommand = "$thisCommand -DnsSettings $dns" }
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $vm1'
+Write-ColorOutput "Red" "BOBFIX-ENABLE[N-AVM]"
+	Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-AVM]: [$thisRc|$Global:ecRc]"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $Global:ecOutput'
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-VM1[N-AVM]: $vm1'
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) {
+	    Write-ColorOutput "Red" "BOBFIX-ERROR[N-AVM]: [$Global:ecVariableError]"
+	    Exit
+	}
+
+    } else {
+	Write-ColorOutput "Yellow" "Get-AzureVM: -Name `"$vmName`" -ServiceName `"$serviceName`" already created!"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
     }
 
-Set-PSDebug -trace 0 -strict
-Exit
-}
-
-
-# Create App VM #1
-Set-PSDebug -trace 0 -strict
-Exit
-
 # Associate the Reserved VIPs with the cloud services
-Write-Output "	BOBFIX >>>> " `
-Set-AzureReservedIPAssociation -ReservedIPName 'pccperfwuweb1vip' -ServiceName 'pccperfwuweb1'
-Write-Output "	BOBFIX >>>> " `
-Set-AzureReservedIPAssociation -ReservedIPName 'pccperfwuapp1vip' -ServiceName 'pccperfwuapp1'
-Write-Output "	BOBFIX >>>> " `
-Set-AzureReservedIPAssociation -ReservedIPName 'pccperfwudb1vip' -ServiceName 'pccperfwudb1'
+    $newReservedName = "${serviceName}vip"
+    $thisCommand = "Set-AzureReservedIPAssociation -ReservedIPName $newReservedName -ServiceName $serviceName"
+#    $testCommand = "Get-AzureReservedIP -ReservedIPName `"$newReservedName`""
+#    Execute_Command 0 "$testCommand"; $thisRc=$?
+#    if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
+#Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-AVM]: [$thisRc|$Global:ecRc]"
 
+#    if ($Global:ecRc -eq $false) {
+#Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
+#Write-ColorOutput "Red" "BOBFIX-ENABLE[N-AVM]"
+	Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ARIPA]: [$thisRc|$Global:ecRc]"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[S-ARIPA]: $Global:ecOutput'
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false) {
+	    Write-ColorOutput "Red" "BOBFIX-ERROR[S-ARIPA]: [$Global:ecVariableError]"
+	    Exit
+	}
+#    } else {
+#	Write-ColorOutput "Yellow" "Get-AzureReservedIP: -ReservedIPName `"$newReservedName`" -ServiceName `"$serviceName`""
+#Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ARIP]: $Global:ecOutput'
+#    }
+
+}
 
 Set-PSDebug -trace 0 -strict
 Exit
