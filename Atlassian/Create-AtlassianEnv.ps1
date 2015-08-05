@@ -270,9 +270,9 @@ $dns = $null
 # Begin Azure work
 ######################################################################################################
 # Sign in to your Azure account
-Write-ColorOutput "Red" "BOBFIX-ENABLE[A-AA]"
+# Write-ColorOutput "Red" "BOBFIX-ENABLE[A-AA]"
 $thisCommand = "Add-AzureAccount"
-Execute_Command 1 "$thisCommand"; $thisRc=$?
+Execute_Command 0 "$thisCommand"; $thisRc=$?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-AA]: [$thisRc|$Global:ecRc]"
 if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
@@ -641,7 +641,7 @@ Set-PSDebug -trace 0 -strict
 # Create VMs
 for($entryCount = 0; $entryCount -lt $VMList.count; $entryCount++)
 {
-Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
+# Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
     $vmName = $VMList[${entryCount}][0]
     $tierType = $VMList[${entryCount}][1]
     $serviceName = $VMList[${entryCount}][2]
@@ -714,7 +714,6 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ADD]: [$thisRc|$Global:ecRc]"
 	$thisCommand = "New-AzureVM -ServiceName $serviceName -vm "+'$vm1'+" -VNetName `"$vnetName`""
 #	if ($osType -eq "WINDOWS") { $thisCommand = "$thisCommand -DnsSettings $dns" }
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $vm1'
-Write-ColorOutput "Red" "BOBFIX-ENABLE[N-AVM]"
 	Execute_Command 0 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-AVM]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $Global:ecOutput'
@@ -739,7 +738,6 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
 
 #    if ($Global:ecRc -eq $false) {
 #Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
-#Write-ColorOutput "Red" "BOBFIX-ENABLE[N-AVM]"
 	Execute_Command 0 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ARIPA]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[S-ARIPA]: $Global:ecOutput'
