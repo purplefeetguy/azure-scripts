@@ -134,6 +134,14 @@ Write-ColorOutput "Magenta" ">> RETURN-CODES: [$functionRc|$functionLEC|$functio
 }
 
 ######################################################################################################
+# Create-Cloud-Services
+#
+# function Create-Cloud-Services()
+# {
+# }
+
+
+######################################################################################################
 # INITIALIZE
 #
 
@@ -173,7 +181,11 @@ $password = 'Welcome!234'
 #-----------------------------------------------------------------------------------------------------
 # Initialize Server "Naming" variables
 $theseTiers = @("WEB","APP","DB")
+# Set-PSDebug -trace 1 -strict
+# Write-ColorOutput "Red" "BOBFIX-CHANGE remove second database server, but needed to test again from scratch"
 $tierCounts = @(1,4,1)
+# $tierCounts = @(1,4,2)
+# Set-PSDebug -trace 0 -strict
 $tierWindowsCounts = @(0,1,0)
 $thisEnv="P"
 $theseOSTypes = @("WINDOWS","LINUX")
@@ -199,7 +211,7 @@ $newIPAddrs = $newWebIPAddrs, $newAppIPAddrs, $newDBIPAddrs
 #-----------------------------------------------------------------------------------------------------
 # Initialize Storage Type name extensions
 $newStdStorageNames = @()
-Write-ColorOutput "Red" "BOBFIX-CHANGE remove img1 storage account"
+# BOBFIX 2015/08/09: Removed img1 storage account, as it was not required for what we are doing
 # $newStdStorageTypes = @('web1', 'app1', 'img1')
 $newStdStorageTypes = @('web1', 'app1')
 $newHighPerfStorageNames = @()
@@ -229,7 +241,7 @@ $windowsImageName = '2012R2Image.vhd'
 $linuxImageName = 'LinuxImage.vhd'
 $imageNames = $windowsImageName, $linuxImageName
 
-Write-ColorOutput "Red" "BOBFIX-CHANGE Update Image Names per where they are going"
+# BOBFIX 2015/08/09: Updated Images Names per where they are going, changed due to removing img1 storage account
 # $imageWindowsNames = @('wagswin2012r2app1', 'wagswin2012r2app2', 'wagswin2012r2db1', 'wagswin2012r2as1')
 # $imageLinuxNames = @('wagslinuxweb1', 'wagslinuxapp2', 'wagslinuxdb1', 'wagslinuxdb2')
 $imageWindowsNames = @('wagswin2012r2app1', 'wagswin2012r2app2', 'wagswin2012r2db1')
@@ -359,12 +371,12 @@ $thisCommand = "Get-AzureStorageKey -StorageAccountName $srcStorageAccount"
 Write-ColorOutput "Green" ">> EXECUTE: `$srcStorageKey = (Invoke-Expression $thisCommand).Primary"
 $srcStorageKey = (Invoke-Expression $thisCommand).Primary; $thisRc=$?
 Write-ColorOutput "Cyan" "BOBFIX-OUTPUT: $srcStorageKey"
+
 # NOTE STARTING:  (Need to change selected subscription Back to this subscription after retrieving key)
 $thisCommand = "Select-AzureSubscription -SubscriptionName `"$subscriptionName`""
 Execute_Command 0 "$thisCommand"; $thisRc=$?
 if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 # NOTE: COMPLETE
-
 
 $thisCommand = "New-AzureStorageContext –StorageAccountName $srcStorageAccount -StorageAccountKey $srcStorageKey"
 Write-ColorOutput "Green" ">> EXECUTE: `$srcContext = Invoke-Expression $thisCommand"
@@ -455,7 +467,7 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ASCr]: $Global:ecOutput'
 Clear-Ten
 
 
-# Create the VM Image objects
+# Create the VM Build Image objects
 $count = 0
 foreach ($destStorageAccount in $destStorageAccounts)
 {
@@ -507,6 +519,9 @@ Clear-Ten
 
 Write-ColorOutput "Cyan" "BOBFIX-(Cloud-Services): [$newCloudServices]"
 
+# Set-PSDebug -trace 1 -strict
+# $newCloudServices = @()
+# Set-PSDebug -trace 0 -strict;Exit
 foreach ($newCloudService in $newCloudServices)
 {
     $thisCommand = "New-AzureService -ServiceName `"$newCloudService`" -Location `"$location`""
@@ -544,6 +559,11 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ARIP]: $Global:ecOutput'
 
 }
 
+# Set-PSDebug -trace 1 -strict
+# Create-Cloud-Services
+# Set-PSDebug -trace 0 -strict ;Exit
+# Exit
+
 
 $stdCount = 0
 $highPerfCount = 0
@@ -551,6 +571,10 @@ $thisRDPPort = $rdpEndpointPort
 $thisSSHPort = $sshEndpointPort
 for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 {
+    # BOBFIX: 2015/08/09: Ports are specific to Cloud Services, which we have a separate one per type
+#    $thisRDPPort = $rdpEndpointPort
+#    $thisSSHPort = $sshEndpointPort
+
     $thisTier = $theseTiers[${typeCount}]
     $thisType = $theseTypes[${typeCount}]
     $entryMax = $tierCounts[${typeCount}]
@@ -643,12 +667,13 @@ $VMList[3]
 $VMList[4]
 $VMList[5]
 Set-PSDebug -trace 0 -strict
+# Exit
 
 
 # Create VMs
 for($entryCount = 0; $entryCount -lt $VMList.count; $entryCount++)
 {
-Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
+# Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
     $vmName = $VMList[${entryCount}][0]
     $tierType = $VMList[${entryCount}][1]
     $serviceName = $VMList[${entryCount}][2]
