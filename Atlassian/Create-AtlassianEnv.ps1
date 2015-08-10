@@ -524,6 +524,9 @@ $sshEndpointPort = 57101
 $rdpEndpointName = 'RemoteDesktop'
 $rdpEndpointPort = 57201
 #---
+$EndpointNames = $rdpEndpointName, $sshEndpointName
+$EndpointPorts = $rdpEndpointPort, $sshEndpointPort
+#---
 $domainJoin = 'devwalgreenco.net'
 $domain = 'walgreenco'
 #---
@@ -644,10 +647,12 @@ $highPerfCount = 0
 # $thisSSHPort = $sshEndpointPort
 for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 {
-Set-PSDebug -trace 1 -strict
     # BOBFIX: 2015/08/09: Ports are specific to Cloud Services, which we have a separate one per type
-    $thisRDPPort = $rdpEndpointPort
-    $thisSSHPort = $sshEndpointPort
+#    $thisRDPPort = $rdpEndpointPort
+#    $thisSSHPort = $sshEndpointPort
+    $EndpointPortCount = @()
+    $EndpointPortCount += $rdpEndpointPort
+    $EndpointPortCount += $sshEndpointPort
 
     $thisTierType = $theseTiers[${typeCount}]
     $thisTierPrefixType = $theseTypes[${typeCount}]
@@ -663,38 +668,39 @@ Set-PSDebug -trace 1 -strict
 
 	#----------------------------------------------------------------------------------------
 	# Provision any WINDOWS Servers first, rest of the servers are LINUX
-	if ($entryCount -lt $windowsMax) {
-	    $thisOS = $theseOSs[0]
-	    $thisOSType = $theseOSTypes[0]
-	    $thisOSTypeEntry=0
-	    $thisEndpointName = $rdpEndpointName
-	    $thisEndpointPort = $thisRDPPort
-	    $thisRDPPort++
-	}
+	if ($entryCount -lt $windowsMax) { $thisOSTypeEntry=0 }
 	#----------------------------------------------------------------------------------------
 	# Rest of the servers are LINUX
-	else {
-	    $thisOS = $theseOSs[1]
-	    $thisOSType = $theseOSTypes[1]
-	    $thisOSTypeEntry=1
-	    $thisEndpointName = $sshEndpointName
-	    $thisEndpointPort = $thisSSHPort
-	    $thisSSHPort++
-	}
-	$thisImageName = $StoragePoolImages.$thisTierType[${thisOSTypeEntry}]
+	else { $thisOSTypeEntry=1 }
 	#----------------------------------------------------------------------------------------
+	$thisOS = $theseOSs[${thisOSTypeEntry}]
+	$thisOSType = $theseOSTypes[${thisOSTypeEntry}]
+	$thisEndpointName = $EndpointNames[${thisOSTypeEntry}]
+	$thisImageName = $StoragePoolImages.$thisTierType[${thisOSTypeEntry}]
+	$thisEndpointPort = $EndpointPortCount[${thisOSTypeEntry}]
+	$EndpointPortCount[${thisOSTypeEntry}]++
+	#----------------------------------------------------------------------------------------
+# Set-PSDebug -trace 1 -strict
+# $thisOS
+# $thisOSType
+# $thisEndpointName
+# $thisImageName
+# $thisEndpointPort
+# Set-PSDebug -trace 0 -strict
 
-Set-PSDebug -trace 1 -strict
-$storagePoolName.$thisTierType.Count
-$storagePoolName.$thisTierType
-	if ( $storagePoolName.$thisTierType.Count -le 1) {
-	    $thisStorageAccount = $storagePoolName.$thisTierType
+# Set-PSDebug -trace 1 -strict
+# $StoragePoolName.$thisTierType.Count
+# $StoragePoolName.$thisTierType
+	if ( $StoragePoolName.$thisTierType.Count -le 1) {
+	    $thisStorageAccount = $StoragePoolName.$thisTierType
 	} else {
 	    # BOBFIX at some point fix to specify which pool for each server.
-Write-ColorOutput "Red" "BOBFIX-FIX-FUTURE to at some point fix to specify which pool for each server."
-	    $thisStorageAccount = $storagePoolName.$thisTierType[0]
+# Write-ColorOutput "Red" "BOBFIX-FIX-FUTURE to at some point fix to specify which pool for each server."
+	    $thisStoragePoolEntry = $StoragePoolNumber.$thisTierType[$entryCount]
+	    $thisStorageAccount = $StoragePoolName.$thisTierType[$thisStoragePoolEntry]
+# $thisStorageAccount
 	}
-Set-PSDebug -trace 0 -strict
+# Set-PSDebug -trace 0 -strict
 
 	#----------------------------------------------------------------------------------------
 	# Test for DATABASE server, which is HIGH-PERFORMANCE Storage
@@ -742,15 +748,17 @@ Set-PSDebug -trace 0 -strict
     }
 }
 
-Set-PSDebug -trace 1 -strict
+# Set-PSDebug -trace 1 -strict
 $VMList.count
-$VMList[0]
-$VMList[1]
-$VMList[2]
-$VMList[3]
-$VMList[4]
-$VMList[5]
+    for($thisVMCount=0;$thisVMCount -lt $VMList.count;$thisVMCount++) { "Entry:[$thisVMCount] ==>"; $VMList[$thisVMCount] }
+# $VMList[0]
+# $VMList[1]
+# $VMList[2]
+# $VMList[3]
+# $VMList[4]
+# $VMList[5]
 Set-PSDebug -trace 0 -strict
+# Exit 1
 
 
 # Create VMs
@@ -829,6 +837,7 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ADD]: [$thisRc|$Global:ecRc]"
 	$thisCommand = "New-AzureVM -ServiceName $serviceName -vm "+'$vm1'+" -VNetName `"$vnetName`""
 #	if ($osType -eq "WINDOWS") { $thisCommand = "$thisCommand -DnsSettings $dns" }
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $vm1'
+# Write-ColorOutput "Red" "BOBFIX-ENABLE[N-AVM]"
 	Execute_Command 0 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-AVM]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $Global:ecOutput'
@@ -853,7 +862,8 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
 
 #    if ($Global:ecRc -eq $false) {
 #Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
-Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 5) { continue }
+# Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 5) { continue }
+Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 6) { continue }
 	Execute_Command 0 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ARIPA]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[S-ARIPA]: $Global:ecOutput'
