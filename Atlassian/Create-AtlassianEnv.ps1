@@ -142,7 +142,7 @@ function Create-Cloud-Services()
     {
 	$thisTierName = $thisTier.ToLower()
 	$theseNames = $null
-	for($count=1;$count -le 1;$count++)
+	for($count=1;$count -le $CloudServicesTotal.$thisTier;$count++)
 	{
 	    $thisCloudService = "$ProjectPrefix$DataCenterPrefix$CloudServicePrefix$thisTierName$count"
 	    $theseNames += @($thisCloudService)
@@ -191,6 +191,35 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ARIP]: $Global:ecOutput'
 
 
 ######################################################################################################
+# Create-Storage-Pools
+#
+function Create-Storage-Pools()
+{
+    foreach ($thisTier in $theseTiers)
+    {
+	$thisTierName = $thisTier.ToLower()
+	$theseNames = $null
+	for($count=1;$count -le $StoragePoolsTotal.$thisTier;$count++)
+	{
+	    if($StoragePoolsTotal.$thisTier -le 1) {
+		$thisStorageType = $StoragePoolTypes.$thisTier
+	    }else {
+		$thisStorageType = $StoragePoolTypes.$thisTier[$count-1]
+	    }
+	    $thisStoragePool = "$ProjectPrefix$DataCenterPrefix$StoragePoolPrefix$thisStorageType$thisTierName$count"
+	    $theseNames += @($thisStoragePool)
+
+
+	}
+	$Global:StoragePoolName += @{"$thisTier" = @($theseNames)}
+# Set-PSDebug -trace 0 -strict;Exit
+    }
+# $Global:StoragePoolName
+# Set-PSDebug -trace 0 -strict;Exit
+}
+
+
+######################################################################################################
 # INITIALIZE
 #
 
@@ -216,10 +245,18 @@ Set-StrictMode -Version Latest
 # INITIALIZE Variables
 #
 $Global:CloudServiceName = @{}
+$Global:StoragePoolName = @{}
 $ProjectPrefix = 'atlass'
 $DataCenterPrefix = 'wu'
 $CloudServicePrefix = 'cs'
 $StoragePoolPrefix = 'sp'
+$STD_STORAGE = 'st'
+$HP_STORAGE = 'hp'
+
+$STANDARD_STORAGE = 'Standard_LRS'
+$HIGHPERF_STORAGE = 'Premium_LRS'
+
+$StoragePoolParm = ${"$STD_STORAGE" = "$STANDARD_STORAGE"; "$HP_STORAGE" = "$HIGHPERF_STORAGE"}
 
 #-----------------------------------------------------------------------------------------------------
 # Initialize Azure variables
@@ -232,13 +269,17 @@ $password = 'Welcome!234'
 
 #-----------------------------------------------------------------------------------------------------
 # Initialize Server "Naming" variables
-$theseTiers = @("WEB","APP","DB")
-# Set-PSDebug -trace 1 -strict
-# Write-ColorOutput "Red" "BOBFIX-CHANGE remove second database server, but needed to test again from scratch"
-$tierCounts = @(1,4,1)
-# $tierCounts = @(1,4,2)
-# Set-PSDebug -trace 0 -strict
-$tierWindowsCounts = @(0,1,0)
+    $theseTiers = @("WEB","APP","DB")
+# Number of WEB, APP, and DB VMs to be created
+    $tierCounts = @(1,4,1)
+# Number of WINDOWS servers for WEB, APP, and DB
+    $tierWindowsCounts = @(0,1,0)
+# Number of Cloud services for WEB, APP, and DB
+    $CloudServicesTotal = @{"WEB" = 1; "APP" = 1; "DB" = 1}
+# Number of Storage Pools for WEB, APP, and DB
+    $StoragePoolsTotal = @{"WEB" = 1; "APP" = 1; "DB" = 2}
+# Storage Pool Types for WEB, APP, and DB
+    $StoragePoolTypes = @{"WEB" = "$STD_STORAGE"; "APP" = "$STD_STORAGE"; "DB" = @("$STD_STORAGE", "$HP_STORAGE")}
 $thisEnv="P"
 $theseOSTypes = @("WINDOWS","LINUX")
 $theseOSPrettyTypes = @("Windows","Linux")
@@ -356,9 +397,31 @@ if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 Clear-Ten
 
 
-Set-PSDebug -trace 0 -strict
+Write-ColorOutput "Red" "BOBFIX-ENABLE[CREATE-CLOUD-SERVICES]"
+Write-ColorOutput "Red" "BOBFIX-ENABLE[CREATE-CLOUD-SERVICES]"
+Write-ColorOutput "Red" "BOBFIX-ENABLE[CREATE-CLOUD-SERVICES]"
+Write-ColorOutput "Red" "BOBFIX-ENABLE[CREATE-CLOUD-SERVICES]"
+Write-ColorOutput "Red" "BOBFIX-ENABLE[CREATE-CLOUD-SERVICES]"
+Write-ColorOutput "Red" "BOBFIX-ENABLE[CREATE-CLOUD-SERVICES]"
+Write-ColorOutput "Red" "BOBFIX-ENABLE[CREATE-CLOUD-SERVICES]"
+Write-ColorOutput "Red" "BOBFIX-ENABLE[CREATE-CLOUD-SERVICES]"
+if ($true -eq $false) {
 Create-Cloud-Services
+Set-PSDebug -trace 1 -strict
 $Global:CloudServiceName
+$Global:CloudServiceName.WEB
+$Global:CloudServiceName.APP
+$Global:CloudServiceName.DB
+Set-PSDebug -trace 0 -strict
+}
+
+Create-Storage-Pools
+Set-PSDebug -trace 1 -strict
+$Global:StoragePoolName
+$Global:StoragePoolName.WEB
+$Global:StoragePoolName.APP
+$Global:StoragePoolName.DB
+
 Set-PSDebug -trace 0 -strict ;Exit
 Exit
 
