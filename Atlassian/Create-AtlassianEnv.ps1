@@ -421,7 +421,11 @@ $password = 'Welcome!234'
 # Initialize Server "Naming" variables
     $theseTiers = @("WEB","APP","DB")
 # Number of WEB, APP, and DB VMs to be created
-    $tierCounts = @(1,4,1)
+Write-ColorOutput "Red" "BOBFIX-TESTING second DB server in High Perf Storage"
+Set-PSDebug -trace 1 -strict
+#    $tierCounts = @(1,4,1)
+    $tierCounts = @(1,4,2)
+Set-PSDebug -trace 0 -strict
 # Number of WINDOWS servers for WEB, APP, and DB
     $tierWindowsCounts = @(0,1,0)
 # Number of Cloud services for WEB, APP, and DB
@@ -430,6 +434,12 @@ $password = 'Welcome!234'
     $StoragePoolsTotal = @{"WEB" = 1; "APP" = 1; "DB" = 2}
 # Storage Pool Types for WEB, APP, and DB
     $StoragePoolTypes = @{"WEB" = "$STD_STORAGE"; "APP" = "$STD_STORAGE"; "DB" = @("$STD_STORAGE", "$HP_STORAGE")}
+# Storage Pool For each Server
+    $StoragePoolNumber = @{}
+    $StoragePoolNumber.WEB = @(0)
+    $StoragePoolNumber.APP = @(0,0,0,0)
+    $StoragePoolNumber.DB = @(0,1)
+
 $thisEnv="P"
 $theseOSTypes = @("WINDOWS","LINUX")
 $theseOSPrettyTypes = @("Windows","Linux")
