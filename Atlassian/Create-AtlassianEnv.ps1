@@ -141,11 +141,11 @@ function Create-Cloud-Services()
     foreach ($thisTier in $theseTiers)
     {
 	$thisTierName = $thisTier.ToLower()
-	$theseNames = $null
+	$theseCSNames = $null
 	for($count=1;$count -le $CloudServicesTotal.$thisTier;$count++)
 	{
 	    $thisCloudService = "$ProjectPrefix$DataCenterPrefix$CloudServicePrefix$thisTierName$count"
-	    $theseNames += @($thisCloudService)
+	    $theseCSNames += @($thisCloudService)
 
 	    $thisCommand = "New-AzureService -ServiceName `"$thisCloudService`" -Location `"$location`""
 	    $testCommand = "Get-AzureService -ServiceName $thisCloudService"
@@ -185,7 +185,11 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ARIP]: $Global:ecOutput'
 	    }
 
 	}
-	$Global:CloudServiceName += @{"$thisTier" = @($theseNames)}
+# BOBFIX
+Write-ColorOutput "Red" "BOBFIX-DISABLE[CloudServiceName-OVERRIDE]"
+# if($BOBTEST -eq $true -and $thisTier -ne "DB") { $theseCSNames = "$ProjectPrefix$DataCenterPrefix$thisTierName"+"1" }
+if($BOBTEST -eq $true) { $theseCSNames = "$ProjectPrefix$DataCenterPrefix$thisTierName"+"1" }
+	$Global:CloudServiceName += @{"$thisTier" = @($theseCSNames)}
     }
 }
 
@@ -194,7 +198,7 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ARIP]: $Global:ecOutput'
 # Copy-VM-Image
 # Copy the Windows VM Install VHD images to the storage accounts
 #
-function Copy-VM-Image($cvmiStoragePool, $cvmiStoragePoolExt)
+function Copy-VM-Image($cvmiStoragePool, $cvmiTier, $cvmiTierCount, $cvmiStoragePoolExt)
 {
     ###############################################################################################################
     # Set the current storage account (not required but a good practice)
@@ -239,6 +243,7 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-ASCr]: [$thisRc|$Global:ecRc]"
 
     $blob = $null
     $thisOSImageType = 0
+    $theseImageNames = $null
     foreach ($baseImageName in $imageNames)
     {
 	$srcBlob = $baseImageName
@@ -306,8 +311,12 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[A-AVMI]: $Global:ecOutput'
 	    Write-ColorOutput "Yellow" "Get-AzureVMImage: -ImageName `"$VMImageName`" already created!"
 # Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVMI]: $Global:ecOutput'
 	}
+	$theseImageNames += @($VMImageName)
 	$thisOSImageType++
     }
+    if ($cvmiTierCount -le 1) { $thisSPIType = "$cvmiTier" }
+    else { $thisSPIType = "$cvmiTier$cvmiTierCount" }
+    $Global:StoragePoolImages += @{"$thisSPIType" = @($theseImageNames)}
 
 }
 
@@ -320,7 +329,7 @@ function Create-Storage-Pools()
     foreach ($thisTier in $theseTiers)
     {
 	$thisTierName = $thisTier.ToLower()
-	$theseNames = $null
+	$theseSPNames = $null
 	for($count=1;$count -le $StoragePoolsTotal.$thisTier;$count++)
 	{
 	    if($StoragePoolsTotal.$thisTier -le 1) {
@@ -329,7 +338,7 @@ function Create-Storage-Pools()
 		$thisStorageType = $StoragePoolTypes.$thisTier[$count-1]
 	    }
 	    $thisStoragePool = "$ProjectPrefix$DataCenterPrefix$StoragePoolPrefix$thisStorageType$thisTierName$count"
-	    $theseNames += @($thisStoragePool)
+	    $theseSPNames += @($thisStoragePool)
 
 	    $StorageTypeParameter = $StoragePoolParm.$thisStorageType
 	    $thisCommand = "New-AzureStorageAccount -StorageAccountName `"$thisStoragePool`" -Location `"$location`" -Type $StorageTypeParameter"
@@ -347,18 +356,21 @@ Write-ColorOutput "Red" "BOBFIX-ERROR[G-ASA]: [$Global:ecVariableError]"
 		Write-ColorOutput "Yellow" "Storage Account `"$thisStoragePool`" already created!"
 	    }
 # if ( $thisTier -eq "DB" -and $thisStorageType -eq "hp") { Set-PSDebug -trace 0 -strict;Exit }
-	    Copy-VM-Image "$thisStoragePool" "$thisStorageType$thisTierName$count"
+	    Copy-VM-Image "$thisStoragePool" "$thisTier" "$count" "$thisStorageType$thisTierName$count"
 
 	}
-	$Global:StoragePoolName += @{"$thisTier" = @($theseNames)}
+	$Global:StoragePoolName += @{"$thisTier" = @($theseSPNames)}
     }
-# Set-PSDebug -trace 0 -strict
 }
 
 
 ######################################################################################################
 # INITIALIZE
 #
+
+Write-ColorOutput "Red" "BOBTEST-NEED-TO-Turn off BOBTEST"
+Set-PSDebug -trace 1 -strict
+$BOBTEST = $true
 
 Set-PSDebug -trace 0 -strict
 $Error.Clear()
@@ -383,6 +395,7 @@ Set-StrictMode -Version Latest
 #
 $Global:CloudServiceName = @{}
 $Global:StoragePoolName = @{}
+$Global:StoragePoolImages = @{}
 $ProjectPrefix = 'atlass'
 $DataCenterPrefix = 'wu'
 $CloudServicePrefix = 'cs'
@@ -585,14 +598,10 @@ Clear-Ten
 ###############################################################################################################
 # Create the Cloud Services
 #
-Write-ColorOutput "Red" "BOBFIX-ENABLE[Create-Cloud-Services]!!!!!!!!!"
-Write-ColorOutput "Red" "BOBFIX-ENABLE[Create-Cloud-Services]!!!!!!!!!"
-Write-ColorOutput "Red" "BOBFIX-ENABLE[Create-Cloud-Services]!!!!!!!!!"
-Write-ColorOutput "Red" "BOBFIX-ENABLE[Create-Cloud-Services]!!!!!!!!!"
-Write-ColorOutput "Red" "BOBFIX-ENABLE[Create-Cloud-Services]!!!!!!!!!"
-if ($true -eq $false) {
+# Write-ColorOutput "Red" "BOBFIX-ENABLE[Create-Cloud-Services]!!!!!!!!!"
+# if ($true -eq $false) {
 Create-Cloud-Services
-}
+# }
 $Global:CloudServiceName
 # $Global:CloudServiceName.WEB
 # $Global:CloudServiceName.APP
@@ -604,19 +613,16 @@ $Global:CloudServiceName
 ###############################################################################################################
 # Create the Storage Pools
 #
-Write-ColorOutput "Red" "BOBFIX-ENABLE[Create-Storage-Pools]!!!!!!!!!"
-if ($true -eq $false) {
+# Write-ColorOutput "Red" "BOBFIX-ENABLE[Create-Storage-Pools]!!!!!!!!!"
+# if ($true -eq $false) {
 Create-Storage-Pools
-}
+# }
 $Global:StoragePoolName
 # $Global:StoragePoolName.WEB
 # $Global:StoragePoolName.APP
 # $Global:StoragePoolName.DB
 #
 ###############################################################################################################
-
-Set-PSDebug -trace 0 -strict ;Exit
-Exit
 
 
 Clear-Ten
@@ -628,19 +634,21 @@ $highPerfCount = 0
 # $thisSSHPort = $sshEndpointPort
 for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 {
+Set-PSDebug -trace 1 -strict
     # BOBFIX: 2015/08/09: Ports are specific to Cloud Services, which we have a separate one per type
     $thisRDPPort = $rdpEndpointPort
     $thisSSHPort = $sshEndpointPort
 
-    $thisTier = $theseTiers[${typeCount}]
-    $thisType = $theseTypes[${typeCount}]
+    $thisTierType = $theseTiers[${typeCount}]
+    $thisTierPrefixType = $theseTypes[${typeCount}]
     $entryMax = $tierCounts[${typeCount}]
     $windowsMax = $tierWindowsCounts[${typeCount}]
 
+    $newAVSet = $CloudServiceName.$thisTierType -creplace '[0-9]*$',''
+    $newAVSet = "${newAVSet}avset"
+
     for ($entryCount=0;$entryCount -lt $entryMax;$entryCount++)
     {
-	$newAVSet = $newCloudServices[${typeCount}] -creplace '[0-9]*$',''
-	$newAVSet = "${newAVSet}avset"
 	$entryCountPrint = $($entryCount+1).ToString("00")
 
 	#----------------------------------------------------------------------------------------
@@ -648,30 +656,40 @@ for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 	if ($entryCount -lt $windowsMax) {
 	    $thisOS = $theseOSs[0]
 	    $thisOSType = $theseOSTypes[0]
-	    $thisImageName = $imageWindowsNames[${typeCount}]
+	    $thisOSTypeEntry=0
 	    $thisEndpointName = $rdpEndpointName
 	    $thisEndpointPort = $thisRDPPort
 	    $thisRDPPort++
-# $thisEndpointPort, $thisRDPPort
 	}
 	#----------------------------------------------------------------------------------------
 	# Rest of the servers are LINUX
 	else {
 	    $thisOS = $theseOSs[1]
 	    $thisOSType = $theseOSTypes[1]
-	    $thisImageName = $imageLinuxNames[${typeCount}]
+	    $thisOSTypeEntry=1
 	    $thisEndpointName = $sshEndpointName
 	    $thisEndpointPort = $thisSSHPort
 	    $thisSSHPort++
-# $thisEndpointPort, $thisSSHPort
 	}
+	$thisImageName = $StoragePoolImages.$thisTierType[${thisOSTypeEntry}]
 	#----------------------------------------------------------------------------------------
+
+Set-PSDebug -trace 1 -strict
+$storagePoolName.$thisTierType.Count
+$storagePoolName.$thisTierType
+	if ( $storagePoolName.$thisTierType.Count -le 1) {
+	    $thisStorageAccount = $storagePoolName.$thisTierType
+	} else {
+	    # BOBFIX at some point fix to specify which pool for each server.
+Write-ColorOutput "Red" "BOBFIX-FIX-FUTURE to at some point fix to specify which pool for each server."
+	    $thisStorageAccount = $storagePoolName.$thisTierType[0]
+	}
+Set-PSDebug -trace 0 -strict
 
 	#----------------------------------------------------------------------------------------
 	# Test for DATABASE server, which is HIGH-PERFORMANCE Storage
 	if ($typeCount -eq 2) {
 	    $thisImageSize = $azureHighPerfVMSize
-	    $thisStorageAccount = $newHighPerfStorageNames[${highPerfCount}]
 	    $thisDiskType = $databaseLUNType
 	    $thisDiskSize = $databaseLUNSize
 	    $thisDiskTotal = $databaseLUNTotal
@@ -680,18 +698,17 @@ for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 	# Rest of the servers are STANDARD-PERFORMANCE Storage
 	else {
 	    $thisImageSize = $azureStdVMSize
-	    $thisStorageAccount = $newStdStorageNames[${stdCount}]
 	    $thisDiskType = $standardLUNType
 	    $thisDiskSize = $standardLUNSize
 	    $thisDiskTotal = $standardLUNTotal
 	}
 	#----------------------------------------------------------------------------------------
 
-	$thisVMName = "$thisEnv$thisOS$thisType-$thisDataCenterLoc$thisApplication$entryCountPrint"
+	$thisVMName = "$thisEnv$thisOS$thisTierPrefixType-$thisDataCenterLoc$thisApplication$entryCountPrint"
 
 	$VMList += @(,($thisVMName, `
-			$thisTier, `
-			$newCloudServices[${typeCount}], `
+			$thisTierType, `
+			$CloudServiceName.$thisTierType, `
 			$thisOSType, `
 			$thisImageName, `
 			$thisImageSize, `
@@ -724,13 +741,12 @@ $VMList[3]
 $VMList[4]
 $VMList[5]
 Set-PSDebug -trace 0 -strict
-Exit
 
 
 # Create VMs
 for($entryCount = 0; $entryCount -lt $VMList.count; $entryCount++)
 {
-Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
+#Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
     $vmName = $VMList[${entryCount}][0]
     $tierType = $VMList[${entryCount}][1]
     $serviceName = $VMList[${entryCount}][2]
@@ -827,6 +843,7 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
 
 #    if ($Global:ecRc -eq $false) {
 #Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
+Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 5) { continue }
 	Execute_Command 0 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ARIPA]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[S-ARIPA]: $Global:ecOutput'
