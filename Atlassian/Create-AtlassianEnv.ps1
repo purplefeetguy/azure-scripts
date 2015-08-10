@@ -208,14 +208,28 @@ function Create-Storage-Pools()
 	    }
 	    $thisStoragePool = "$ProjectPrefix$DataCenterPrefix$StoragePoolPrefix$thisStorageType$thisTierName$count"
 	    $theseNames += @($thisStoragePool)
+$thisStorageType
 
+	    $StorageTypeParameter = $StoragePoolParm.$thisStorageType
+$StorageTypeParameter
+	    $thisCommand = "New-AzureStorageAccount -StorageAccountName `"$thisStoragePool`" -Location `"$location`" -Type $StorageTypeParameter"
+	    $testCommand = "Get-AzureStorageAccount -StorageAccountName `"$thisStoragePool`""
+	    Execute_Command 0 "$testCommand"; $thisRc=$?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ASA]: [$thisRc|$Global:ecRc]"
+
+	    if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Red" "BOBFIX-ERROR[G-ASA]: [$Global:ecVariableError]"
+Write-ColorOutput "Red" "BOBFIX-ENABLE[N-ASA]"
+		Execute_Command 1 "$thisCommand"; $thisRc=$?
+		if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+	    }
+	    else {
+		Write-ColorOutput "Yellow" "Storage Account `"$thisStoragePool`" already created!"
+	    }
 
 	}
 	$Global:StoragePoolName += @{"$thisTier" = @($theseNames)}
-# Set-PSDebug -trace 0 -strict;Exit
     }
-# $Global:StoragePoolName
-# Set-PSDebug -trace 0 -strict;Exit
 }
 
 
@@ -256,7 +270,7 @@ $HP_STORAGE = 'hp'
 $STANDARD_STORAGE = 'Standard_LRS'
 $HIGHPERF_STORAGE = 'Premium_LRS'
 
-$StoragePoolParm = ${"$STD_STORAGE" = "$STANDARD_STORAGE"; "$HP_STORAGE" = "$HIGHPERF_STORAGE"}
+$StoragePoolParm = @{"$STD_STORAGE" = "$STANDARD_STORAGE"; "$HP_STORAGE" = "$HIGHPERF_STORAGE"}
 
 #-----------------------------------------------------------------------------------------------------
 # Initialize Azure variables
