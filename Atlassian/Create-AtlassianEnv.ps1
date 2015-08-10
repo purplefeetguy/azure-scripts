@@ -764,7 +764,7 @@ Set-PSDebug -trace 0 -strict
 
 # Set-PSDebug -trace 1 -strict
 $VMList.count
-    for($thisVMCount=0;$thisVMCount -lt $VMList.count;$thisVMCount++) { " ";"Entry:[$thisVMCount] ==>"; $VMList[$thisVMCount] }
+    for($thisVMCount=0;$thisVMCount -lt $VMList.count;$thisVMCount++) { " ";Write-ColorOutput "Cyan" "" "Entry:[$thisVMCount] ==>";$VMList[$thisVMCount] }
 # $VMList[0]
 # $VMList[1]
 # $VMList[2]
@@ -877,7 +877,7 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
 #    if ($Global:ecRc -eq $false) {
 #Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
 # Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 5) { continue }
-Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 8) { continue }
+Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 7) { continue }
 	Execute_Command 0 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ARIPA]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[S-ARIPA]: $Global:ecOutput'
