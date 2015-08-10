@@ -314,9 +314,11 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[A-AVMI]: $Global:ecOutput'
 	$theseImageNames += @($VMImageName)
 	$thisOSImageType++
     }
+# Set-PSDebug -trace 1 -strict
     if ($cvmiTierCount -le 1) { $thisSPIType = "$cvmiTier" }
     else { $thisSPIType = "$cvmiTier$cvmiTierCount" }
     $Global:StoragePoolImages += @{"$thisSPIType" = @($theseImageNames)}
+# Set-PSDebug -trace 0 -strict
 
 }
 
@@ -615,10 +617,12 @@ Clear-Ten
 # if ($true -eq $false) {
 Create-Cloud-Services
 # }
+Set-PSDebug -trace 1 -strict
 $Global:CloudServiceName
 # $Global:CloudServiceName.WEB
 # $Global:CloudServiceName.APP
 # $Global:CloudServiceName.DB
+Set-PSDebug -trace 0 -strict
 #
 ###############################################################################################################
 
@@ -630,12 +634,16 @@ $Global:CloudServiceName
 # if ($true -eq $false) {
 Create-Storage-Pools
 # }
+Set-PSDebug -trace 1 -strict
 $Global:StoragePoolName
 # $Global:StoragePoolName.WEB
 # $Global:StoragePoolName.APP
 # $Global:StoragePoolName.DB
+$Global:StoragePoolImages
+Set-PSDebug -trace 0 -strict
 #
 ###############################################################################################################
+# Set-PSDebug -trace 0 -strict;Exit
 
 
 Clear-Ten
@@ -665,28 +673,8 @@ for ($typeCount=0;$typeCount -lt 3;$typeCount++)
     for ($entryCount=0;$entryCount -lt $entryMax;$entryCount++)
     {
 	$entryCountPrint = $($entryCount+1).ToString("00")
+	$storagePoolTierType = $thisTierType
 
-	#----------------------------------------------------------------------------------------
-	# Provision any WINDOWS Servers first, rest of the servers are LINUX
-	if ($entryCount -lt $windowsMax) { $thisOSTypeEntry=0 }
-	#----------------------------------------------------------------------------------------
-	# Rest of the servers are LINUX
-	else { $thisOSTypeEntry=1 }
-	#----------------------------------------------------------------------------------------
-	$thisOS = $theseOSs[${thisOSTypeEntry}]
-	$thisOSType = $theseOSTypes[${thisOSTypeEntry}]
-	$thisEndpointName = $EndpointNames[${thisOSTypeEntry}]
-	$thisImageName = $StoragePoolImages.$thisTierType[${thisOSTypeEntry}]
-	$thisEndpointPort = $EndpointPortCount[${thisOSTypeEntry}]
-	$EndpointPortCount[${thisOSTypeEntry}]++
-	#----------------------------------------------------------------------------------------
-# Set-PSDebug -trace 1 -strict
-# $thisOS
-# $thisOSType
-# $thisEndpointName
-# $thisImageName
-# $thisEndpointPort
-# Set-PSDebug -trace 0 -strict
 
 # Set-PSDebug -trace 1 -strict
 # $StoragePoolName.$thisTierType.Count
@@ -698,9 +686,35 @@ for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 # Write-ColorOutput "Red" "BOBFIX-FIX-FUTURE to at some point fix to specify which pool for each server."
 	    $thisStoragePoolEntry = $StoragePoolNumber.$thisTierType[$entryCount]
 	    $thisStorageAccount = $StoragePoolName.$thisTierType[$thisStoragePoolEntry]
+	    if ($thisStoragePoolEntry -gt 0) {
+		$storagePoolTierType = "$thisTierType$($thisStoragePoolEntry+1)"
+	    }
 # $thisStorageAccount
 	}
 # Set-PSDebug -trace 0 -strict
+
+
+	#----------------------------------------------------------------------------------------
+	# Provision any WINDOWS Servers first, rest of the servers are LINUX
+	if ($entryCount -lt $windowsMax) { $thisOSTypeEntry=0 }
+	#----------------------------------------------------------------------------------------
+	# Rest of the servers are LINUX
+	else { $thisOSTypeEntry=1 }
+	#----------------------------------------------------------------------------------------
+	$thisOS = $theseOSs[${thisOSTypeEntry}]
+	$thisOSType = $theseOSTypes[${thisOSTypeEntry}]
+	$thisEndpointName = $EndpointNames[${thisOSTypeEntry}]
+	$thisImageName = $StoragePoolImages.$storagePoolTierType[${thisOSTypeEntry}]
+	$thisEndpointPort = $EndpointPortCount[${thisOSTypeEntry}]
+	$EndpointPortCount[${thisOSTypeEntry}]++
+	#----------------------------------------------------------------------------------------
+# Set-PSDebug -trace 1 -strict
+# $thisOS
+# $thisOSType
+# $thisEndpointName
+# $thisImageName
+# $thisEndpointPort
+Set-PSDebug -trace 0 -strict
 
 	#----------------------------------------------------------------------------------------
 	# Test for DATABASE server, which is HIGH-PERFORMANCE Storage
@@ -750,7 +764,7 @@ for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 
 # Set-PSDebug -trace 1 -strict
 $VMList.count
-    for($thisVMCount=0;$thisVMCount -lt $VMList.count;$thisVMCount++) { "Entry:[$thisVMCount] ==>"; $VMList[$thisVMCount] }
+    for($thisVMCount=0;$thisVMCount -lt $VMList.count;$thisVMCount++) { " ";"Entry:[$thisVMCount] ==>"; $VMList[$thisVMCount] }
 # $VMList[0]
 # $VMList[1]
 # $VMList[2]
@@ -758,7 +772,7 @@ $VMList.count
 # $VMList[4]
 # $VMList[5]
 Set-PSDebug -trace 0 -strict
-# Exit 1
+# Exit
 
 
 # Create VMs
@@ -837,8 +851,8 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ADD]: [$thisRc|$Global:ecRc]"
 	$thisCommand = "New-AzureVM -ServiceName $serviceName -vm "+'$vm1'+" -VNetName `"$vnetName`""
 #	if ($osType -eq "WINDOWS") { $thisCommand = "$thisCommand -DnsSettings $dns" }
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $vm1'
-# Write-ColorOutput "Red" "BOBFIX-ENABLE[N-AVM]"
-	Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Red" "BOBFIX-ENABLE[N-AVM]"
+	Execute_Command 1 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-AVM]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $Global:ecOutput'
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-VM1[N-AVM]: $vm1'
@@ -863,7 +877,7 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
 #    if ($Global:ecRc -eq $false) {
 #Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
 # Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 5) { continue }
-Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 6) { continue }
+Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 8) { continue }
 	Execute_Command 0 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ARIPA]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[S-ARIPA]: $Global:ecOutput'
