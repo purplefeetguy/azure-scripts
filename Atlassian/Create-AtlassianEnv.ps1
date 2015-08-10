@@ -136,9 +136,58 @@ Write-ColorOutput "Magenta" ">> RETURN-CODES: [$functionRc|$functionLEC|$functio
 ######################################################################################################
 # Create-Cloud-Services
 #
-# function Create-Cloud-Services()
-# {
-# }
+function Create-Cloud-Services()
+{
+    foreach ($thisTier in $theseTiers)
+    {
+	$thisTierName = $thisTier.ToLower()
+	$theseNames = $null
+	for($count=1;$count -le 1;$count++)
+	{
+	    $thisCloudService = "$ProjectPrefix$DataCenterPrefix$CloudServicePrefix$thisTierName$count"
+	    $theseNames += @($thisCloudService)
+
+	    $thisCommand = "New-AzureService -ServiceName `"$thisCloudService`" -Location `"$location`""
+	    $testCommand = "Get-AzureService -ServiceName $thisCloudService"
+	    Execute_Command 0 "$testCommand"; $thisRc=$?
+	    if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-AS]: [$thisRc|$Global:ecRc]"
+
+	    if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AS]: [$Global:ecVariableError]"
+# Write-ColorOutput "Red" "BOBFIX-ENABLE[N-AS]"
+		Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-AS]: [$thisRc|$Global:ecRc]"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AS]: $Global:ecOutput'
+		if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+	    } else {
+		Write-ColorOutput "Yellow" "Get-AzureService: -ServiceName `"$thisCloudService`" already created!"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AS]: $Global:ecOutput'
+	    }
+
+	    $newReservedName = "${thisCloudService}vip"
+	    $thisCommand = "New-AzureReservedIP -Location `"$location`" -ReservedIPName `"$newReservedName`""
+	    $testCommand = "Get-AzureReservedIP -ReservedIPName `"$newReservedName`""
+	    Execute_Command 0 "$testCommand"; $thisRc=$?
+	    if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-ARIP]: [$thisRc|$Global:ecRc]"
+
+	    if ($Global:ecRc -eq $false) {
+Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-ARIP]: [$Global:ecVariableError]"
+# Write-ColorOutput "Red" "BOBFIX-ENABLE[n-ARIP]"
+		Execute_Command 0 "$thisCommand"; $thisRc = $?
+Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ARIP]: [$thisRc|$Global:ecRc]"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[A-ARIP]: $Global:ecOutput'
+		if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+	    } else {
+		Write-ColorOutput "Yellow" "Get-AzureReservedIP -ReservedIPName `"$newReservedName`" already created!"
+Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ARIP]: $Global:ecOutput'
+	    }
+
+	}
+	$Global:CloudServiceName += @{"$thisTier" = @($theseNames)}
+    }
+}
 
 
 ######################################################################################################
@@ -166,8 +215,11 @@ Set-StrictMode -Version Latest
 ######################################################################################################
 # INITIALIZE Variables
 #
+$Global:CloudServiceName = @{}
 $ProjectPrefix = 'atlass'
 $DataCenterPrefix = 'wu'
+$CloudServicePrefix = 'cs'
+$StoragePoolPrefix = 'sp'
 
 #-----------------------------------------------------------------------------------------------------
 # Initialize Azure variables
@@ -299,6 +351,17 @@ $thisCommand = "Select-AzureSubscription -SubscriptionName `"$subscriptionName`"
 Execute_Command 0 "$thisCommand"; $thisRc=$?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-AS]: [$thisRc|$Global:ecRc]"
 if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
+
+
+Clear-Ten
+
+
+Set-PSDebug -trace 0 -strict
+Create-Cloud-Services
+$Global:CloudServiceName
+Set-PSDebug -trace 0 -strict ;Exit
+Exit
+
 
 # Create the Standard storage accounts
 foreach ($newStorageType in $newStdStorageTypes)
@@ -519,9 +582,9 @@ Clear-Ten
 
 Write-ColorOutput "Cyan" "BOBFIX-(Cloud-Services): [$newCloudServices]"
 
-# Set-PSDebug -trace 1 -strict
-# $newCloudServices = @()
-# Set-PSDebug -trace 0 -strict;Exit
+Set-PSDebug -trace 1 -strict
+$newCloudServices = @()
+Set-PSDebug -trace 0 -strict;Exit
 foreach ($newCloudService in $newCloudServices)
 {
     $thisCommand = "New-AzureService -ServiceName `"$newCloudService`" -Location `"$location`""
@@ -559,21 +622,16 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-ARIP]: $Global:ecOutput'
 
 }
 
-# Set-PSDebug -trace 1 -strict
-# Create-Cloud-Services
-# Set-PSDebug -trace 0 -strict ;Exit
-# Exit
-
 
 $stdCount = 0
 $highPerfCount = 0
-$thisRDPPort = $rdpEndpointPort
-$thisSSHPort = $sshEndpointPort
+# $thisRDPPort = $rdpEndpointPort
+# $thisSSHPort = $sshEndpointPort
 for ($typeCount=0;$typeCount -lt 3;$typeCount++)
 {
     # BOBFIX: 2015/08/09: Ports are specific to Cloud Services, which we have a separate one per type
-#    $thisRDPPort = $rdpEndpointPort
-#    $thisSSHPort = $sshEndpointPort
+    $thisRDPPort = $rdpEndpointPort
+    $thisSSHPort = $sshEndpointPort
 
     $thisTier = $theseTiers[${typeCount}]
     $thisType = $theseTypes[${typeCount}]
@@ -667,13 +725,13 @@ $VMList[3]
 $VMList[4]
 $VMList[5]
 Set-PSDebug -trace 0 -strict
-# Exit
+Exit
 
 
 # Create VMs
 for($entryCount = 0; $entryCount -lt $VMList.count; $entryCount++)
 {
-# Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
+Write-ColorOutput "Red" "BOBFIX-SKIPPING VM-Creation till ready"; if($entryCount -lt 5) { continue }
     $vmName = $VMList[${entryCount}][0]
     $tierType = $VMList[${entryCount}][1]
     $serviceName = $VMList[${entryCount}][2]
