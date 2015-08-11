@@ -837,7 +837,10 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-AS]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ASVNIP]: [$thisRc|$Global:ecRc]"
 	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
-	for($thisDiskCount = 1; $thisDiskCount -le $thisDiskTotal; $thisDiskCount++)
+#	Need to start with LUN ID # 0, versus LUN ID # 1 or we won't be able to use 8 LUNs
+Write-ColorOutput "Red" "BOBFIX-Need to change to start with LUN ID # 0 to ensure ability to use all 8 LUNs"
+#	for($thisDiskCount = 1; $thisDiskCount -le $thisDiskTotal; $thisDiskCount++)
+	for($thisDiskCount = 0; $thisDiskCount -le $thisDiskTotal; $thisDiskCount++)
 	{
 	    $dataDisk = 'https://{0}.blob.core.windows.net/vhds/{1}-data-{2}.vhd' -f $storageAccount, $vmName, $thisDiskCount
 	    $thisDiskLabel = "Data_$thisDiskCount"
