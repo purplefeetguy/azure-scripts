@@ -933,7 +933,7 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
 #Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
 # Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 5) { continue }
 #Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 7) { continue }
-Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation for ALL EXCEPT [5] till ready"; if($entryCount -ne 5) { continue }
+Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation for ALL EXCEPT [5] (Current: $entryCount) till ready"; if($entryCount -ne 5) { continue }
 Write-ColorOutput "Red" "BOBFIX-DISABLE[S-ARIPA] - By Default"
 	Execute_Command 0 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ARIPA]: [$thisRc|$Global:ecRc]"
