@@ -511,7 +511,11 @@ $databaseLUNTotal = 3
 #
 $WAG_IMAGE_PREFIX = 'wags'
 $WINDOWS_PREFIX = 'win2012r2'
+Write-ColorOutput "Red" "BOBFIX-Change Source Image to V3.1"
+Set-PSDebug -trace 1 -strict
 $LINUX_PREFIX = 'linuxv2'
+$LINUX_PREFIX = 'linuxv31'
+Set-PSDebug -trace 0 -strict
 $OS_PREFIX = @($WINDOWS_PREFIX, $LINUX_PREFIX)
 
 #
@@ -537,10 +541,11 @@ $srcStorageAccount = 'atlasswuimg1'
 Set-PSDebug -trace 0 -strict
 
 $windowsImageName = '2012R2Image.vhd'
-Write-ColorOutput "Red" "BOBFIX-Change Source Image Name"
+Write-ColorOutput "Red" "BOBFIX-Change Source Image Name to V3.1"
 Set-PSDebug -trace 1 -strict
 $linuxImageName = 'LinuxImage.vhd'
 $linuxImageName = 'LinuxImagev2.vhd'
+$linuxImageName = 'LinuxImagev3.1.vhd'
 Set-PSDebug -trace 0 -strict
 $imageNames = $windowsImageName, $linuxImageName
 
@@ -705,9 +710,9 @@ for ($typeCount=0;$typeCount -lt 3;$typeCount++)
     $EndpointPortCount += $rdpEndpointPort
     $EndpointPortCount += $sshEndpointPort
 Write-ColorOutput "Red" "BOBFIX-FIX-FUTURE to Properly set sshEndpointPort from 57101, versus initial creation"
-Set-PSDebug -trace 1 -strict
-    if($typeCount -eq 1) { $EndpointPortCount[1]++ }
-Set-PSDebug -trace 0 -strict
+#Set-PSDebug -trace 1 -strict
+#    if($typeCount -eq 1) { $EndpointPortCount[1]++ }
+#Set-PSDebug -trace 0 -strict
 
     $thisTierType = $theseTiers[${typeCount}]
     $thisTierPrefixType = $theseTypes[${typeCount}]
@@ -855,7 +860,9 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-AVM]: [$thisRc|$Global:ecRc]"
     if ($Global:ecRc -eq $false) {
 Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
 
-	$thisCommand = "New-AzureVMConfig -Name $vmName -InstanceSize $vmSize -ImageName $imageName -AvailabilitySetName $avSetName -MediaLocation $osDisk"
+Write-ColorOutput "Red" "BOBFIX-No longer using Availability Sets, as we are not redundant/HA"
+#	$thisCommand = "New-AzureVMConfig -Name $vmName -InstanceSize $vmSize -ImageName $imageName -AvailabilitySetName $avSetName -MediaLocation $osDisk"
+	$thisCommand = "New-AzureVMConfig -Name $vmName -InstanceSize $vmSize -ImageName $imageName -MediaLocation $osDisk"
 	Write-ColorOutput "Green" ">> EXECUTE: `$vm1 = Invoke-Expression $thisCommand"
 	$vm1 = Invoke-Expression $thisCommand; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-VMC]: [$thisRc|$Global:ecRc]"
@@ -907,7 +914,7 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ADD]: [$thisRc|$Global:ecRc]"
 #	if ($osType -eq "WINDOWS") { $thisCommand = "$thisCommand -DnsSettings $dns" }
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $vm1'
 Write-ColorOutput "Red" "BOBFIX-DISABLE[N-AVM] - By Default"
-	Execute_Command 0 "$thisCommand"; $thisRc = $?
+	Execute_Command 1 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-AVM]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $Global:ecOutput'
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-VM1[N-AVM]: $vm1'
@@ -935,7 +942,7 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
 #Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 7) { continue }
 Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation for ALL EXCEPT [5] (Current: $entryCount) till ready"; if($entryCount -ne 5) { continue }
 Write-ColorOutput "Red" "BOBFIX-DISABLE[S-ARIPA] - By Default"
-	Execute_Command 0 "$thisCommand"; $thisRc = $?
+	Execute_Command 1 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ARIPA]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[S-ARIPA]: $Global:ecOutput'
 	if ($thisRc -eq $false -or $Global:ecRc -eq $false) {
