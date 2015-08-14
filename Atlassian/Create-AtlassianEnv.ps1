@@ -121,7 +121,7 @@ function Execute_Command($ecExecute, $ecCommand)
 	}
     }
 
-Write-ColorOutput "Magenta" ">> RETURN-CODES: [$functionRc|$functionLEC|$functionError]"
+# Write-ColorOutput "Magenta" ">> RETURN-CODES: [$functionRc|$functionLEC|$functionError]"
     $Global:ecRc = $functionRc
 
 #--------------------------------------------------
@@ -581,6 +581,16 @@ $ou = 'OU=Azure,OU=Servers,DC=devwalgreenco,DC=net'
 Write-ColorOutput "Red" "BOBFIX-NEED-TO-FIX[???]: [`$dns UNDEFINED]"
 $dns = $null
 #
+
+#-----------------------------------------------------------------------------------------------------
+# Initialize Over-rides
+$BuildNewVMs = $true
+$NewVMTestParm = 0
+if ($BuildNewVMs -eq $false) { $NewVMTestParm = 1 }
+$SetReservedIPOverride = $true
+$SetReservedIPNumber = 3
+#
+
 ######################################################################################################
 
 
@@ -847,8 +857,8 @@ for($entryCount = 0; $entryCount -lt $VMList.count; $entryCount++)
     $staticIPAddress = $VMList[${entryCount}][12]
     $thisEndpointName = $VMList[${entryCount}][13]
     $thisEndpointPort = $VMList[${entryCount}][14]
-Write-ColorOutput "Red" "BOBFIX-Needed to change Method of disk name creation"
-    $osDisk = 'https://{0}.blob.core.windows.net/vhds/{1}-os-1.vhd' -f $storageAccount, $vmName
+# Write-ColorOutput "Red" "BOBFIX-Needed to change Method of disk name creation"
+#     $osDisk = 'https://{0}.blob.core.windows.net/vhds/{1}-os-1.vhd' -f $storageAccount, $vmName
     $osDisk = "https://$storageAccount.blob.core.windows.net/vhds/$vmName-os-1.vhd"
 
     $testCommand = "Get-AzureVM -Name $vmName -ServiceName $serviceName"
@@ -895,12 +905,10 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ASVNIP]: [$thisRc|$Global:ecRc]"
 	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
 #	Need to start with LUN ID # 0, versus LUN ID # 1 or we won't be able to use 8 LUNs
-Write-ColorOutput "Red" "BOBFIX-Need to change to start with LUN ID # 0 to ensure ability to use all 8 LUNs"
-#	for($thisDiskCount = 1; $thisDiskCount -le $thisDiskTotal; $thisDiskCount++)
 	for($thisDiskCount = 0; $thisDiskCount -le $thisDiskTotal; $thisDiskCount++)
 	{
-Write-ColorOutput "Red" "BOBFIX-Needed to change Method of disk name creation"
-	    $dataDisk = 'https://{0}.blob.core.windows.net/vhds/{1}-data-{2}.vhd' -f $storageAccount, $vmName, $thisDiskCount
+# Write-ColorOutput "Red" "BOBFIX-Needed to change Method of disk name creation"
+# 	    $dataDisk = 'https://{0}.blob.core.windows.net/vhds/{1}-data-{2}.vhd' -f $storageAccount, $vmName, $thisDiskCount
 	    $dataDisk = "https://$storageAccount.blob.core.windows.net/vhds/$vmName-data-$thisDiskCount.vhd"
 	    $thisDiskLabel = "Data_$thisDiskCount"
 	    $thisCommand = "Add-AzureDataDisk -CreateNew -DiskSizeInGB $thisDiskSize -DiskLabel $thisDiskLabel -LUN $thisDiskCount -VM "+'$vm1'+" -MediaLocation $dataDisk"
@@ -912,20 +920,26 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-ADD]: [$thisRc|$Global:ecRc]"
 
 	$thisCommand = "New-AzureVM -ServiceName $serviceName -vm "+'$vm1'+" -VNetName `"$vnetName`""
 #	if ($osType -eq "WINDOWS") { $thisCommand = "$thisCommand -DnsSettings $dns" }
-Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $vm1'
+# Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $vm1'
 Write-ColorOutput "Red" "BOBFIX-DISABLE[N-AVM] - By Default"
-	Execute_Command 1 "$thisCommand"; $thisRc = $?
+	Execute_Command $NewVMTestParm "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-AVM]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[N-AVM]: $Global:ecOutput'
-Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-VM1[N-AVM]: $vm1'
+# #Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-VM1[N-AVM]: $vm1'
 	if ($thisRc -eq $false -or $Global:ecRc -eq $false) {
 	    Write-ColorOutput "Red" "BOBFIX-ERROR[N-AVM]: [$Global:ecVariableError]"
 	    Exit
 	}
+	if ($BuildNewVMs = $true) {
+	    Execute_Command 0 "$testCommand"; $thisRc=$?
+	    if ($Global:ecOutput -eq $null) { $Global:ecRc = $false }
+# Write-ColorOutput "Magenta" "BOBFIX-RETURN[G-AVM]: [$thisRc|$Global:ecRc]"
+	    if ($thisRc -eq $true -and $Global:ecRc -eq $true) { Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput' }
+	}
 
     } else {
 	Write-ColorOutput "Yellow" "Get-AzureVM: -Name `"$vmName`" -ServiceName `"$serviceName`" already created!"
-Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
+# Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
     }
 
 # Associate the Reserved VIPs with the cloud services
@@ -940,9 +954,9 @@ Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[G-AVM]: $Global:ecOutput'
 #Write-ColorOutput "Magenta" "BOBFIX-NOT_CREATED[G-AVM]: [$Global:ecVariableError]"
 # Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 5) { continue }
 #Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation [$entryCount] till ready"; if($entryCount -lt 7) { continue }
-Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation for ALL EXCEPT [5] (Current: $entryCount) till ready"; if($entryCount -ne 5) { continue }
+Write-ColorOutput "Red" "BOBFIX-SKIPPING ReservedIPAssociation for ALL EXCEPT [$SetReservedIPNumber] (Current: $entryCount) till ready"; if($entryCount -ne $SetReservedIPNumber) { continue }
 Write-ColorOutput "Red" "BOBFIX-DISABLE[S-ARIPA] - By Default"
-	Execute_Command 1 "$thisCommand"; $thisRc = $?
+	Execute_Command $NewVMTestParm "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-ARIPA]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[S-ARIPA]: $Global:ecOutput'
 	if ($thisRc -eq $false -or $Global:ecRc -eq $false) {
