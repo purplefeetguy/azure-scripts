@@ -1,7 +1,7 @@
 #!/bin/bash
 printf "\n\n\n\n\n\n\n"
 
-CREATE_LUNS="TRUE"
+CREATE_LUNS="FALSE"
 CREATE_MDADM="FALSE"
 CREATE_FS="FALSE"
 
@@ -20,7 +20,7 @@ MDADM_SIZE[${MDADM_TOTAL}]=
 
 set -x
 # MDADM_START=2
-MDADM_TOTAL=1
+# MDADM_TOTAL=1
 # DISK_CHARS="c"
 set +x
 
@@ -53,7 +53,7 @@ fi
 
 for disk in ${DISK_CHARS};do
     printf "\n\n\n\n\n"
-    echo "p\n" | fdisk /dev/sd${disk}
+    printf "c\np\nq\n" | fdisk /dev/sd${disk}
 done
 
 MDADM_MAX=$((MDADM_STARTING_NUMBER+$MDADM_TOTAL-1))
@@ -76,11 +76,9 @@ if [ "${CREATE_FS}" = "TRUE" ]; then
     printf "\n\n\n\n\n"
     mdadmNum=${MDADM_STARTING_NUMBER}
     while [ "${mdadmNum}" -le "${MDADM_MAX}" ];do
-#    for mdadmNum in 126 124 127 125
 	set -x
-	mkfs.ext4 -E lazy_journal_init=1,lazy_itable_init=1 /dev/${MDADM_START}${mdadmNum}
-#	mkfs.ext4 -E lazy_itable_init=1 /dev/${MDADM_START}${mdadmNum}
-#	mkfs.ext4 -E lazy_itable_init=1 /dev/${MDADM_PREFIX}${mdadmNum}
+#	mkfs.ext4 -E lazy_journal_init=1,lazy_itable_init=1 /dev/${MDADM_START}${mdadmNum}
+	mkfs.ext4 -E lazy_itable_init=1 /dev/${MDADM_START}${mdadmNum}
 	set +x
 	mdadmNum=$((mdadmNum+1))
     done
