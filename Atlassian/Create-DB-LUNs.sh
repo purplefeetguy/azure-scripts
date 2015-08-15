@@ -4,6 +4,10 @@ printf "\n\n\n\n\n\n\n"
 CREATE_LUNS="FALSE"
 CREATE_MDADM="FALSE"
 CREATE_FS="FALSE"
+CREATE_ORAVG="FALSE"
+CREATE_ORALVS="FALSE"
+CREATE_ORAFSS="FALSE"
+CREATE_DIRS="TRUE"
 
 DISK_CHARS="c d e"
 
@@ -23,6 +27,18 @@ set -x
 # MDADM_TOTAL=1
 # DISK_CHARS="c"
 set +x
+
+ORA_BASE_DIR="/usr/local/oracle"
+ORA_BASE_DIR_LEN=$(echo "${ORA_BASE_DIR}" | wc -c)
+ALL_DIRS=
+ALL_DIRS="${ALL_DIRS} /usr/local/dba"
+ALL_DIRS="${ALL_DIRS} /usr/local/grid"
+ALL_DIRS="${ALL_DIRS} ${ORA_BASE_DIR}"
+ALL_DIRS="${ALL_DIRS} ${ORA_BASE_DIR}/exports"
+ALL_DIRS="${ALL_DIRS} ${ORA_BASE_DIR}/log"
+ALL_DIRS="${ALL_DIRS} ${ORA_BASE_DIR}/backup"
+ALL_DIRS="${ALL_DIRS} /u01"
+ALL_DIRS="${ALL_DIRS} /u02"
 
 MDADM_PREFIX="md"
 MDADM_STARTING_NUMBER="127"
@@ -83,3 +99,53 @@ if [ "${CREATE_FS}" = "TRUE" ]; then
 	mdadmNum=$((mdadmNum+1))
     done
 fi
+
+if [ "${CREATE_ORAVG}" = "TRUE" ]; then
+    set -x
+    vgcreate oravg /dev/md130
+    set +x
+fi
+
+if [ "${CREATE_ORALVS}" = "TRUE" ]; then
+    set -x
+    lvcreate -L 5029504K -n localdba oravg
+    lvcreate -L 5029504K -n localgrid oravg
+    lvcreate -L 10190136K -n localoracle oravg
+    lvcreate -L 51475068K -n localoraexport oravg
+    lvcreate -L 41153856K -n localoralog oravg
+    set +x
+fi
+
+if [ "${CREATE_ORAFSS}" = "TRUE" ]; then
+    set -x
+    mkfs.ext4 /dev/mapper/oravg-localdba
+    mkfs.ext4 /dev/mapper/oravg-localgrid
+    mkfs.ext4 /dev/mapper/oravg-localoracle
+    mkfs.ext4 /dev/mapper/oravg-localoraexport
+    mkfs.ext4 /dev/mapper/oravg-localoralog
+    set +x
+fi
+
+if [ "${CREATE_DIRS}" = "TRUE" ]; then
+    for thisDir in ${ALL_DIRS}; do
+	testDir=$(echo "${thisDir}" | cut -c-${ORA_BASE_DIR_LEN})
+	mountTest=$(mount | egrep "${ORA_BASE_DIR}" 2>/dev/null)
+	mountTest=$(echo "${mountTest}" | egrep " on ${ORA_BASE_DIR} " 2>/dev/null)
+	mountTest=$(echo "${mountTest}" | sed 's/^.* on \//\//g')
+	mountTest=$(echo "${mountTest}" | sed 's/^\([A-Za-z0-9\/\-\_]*\) .*$/\1/g')
+	if [ "${mountTest}" = "${ORA_BASE_DIR}" -o "${testDir}" != "${ORA_BASE_DIR}/" ]; then
+	    if [ ! -d "${thisDir}" ]; then
+		set -x
+		mkdir ${thisDir}
+		set +x
+	    else
+		printf "Directory: ${thisDir} Already Created!\n"
+	    fi
+	else
+	    printf "NEED to mkdir ${thisDir} AFTER ${ORA_BASE_DIR} mounted!\n"
+	fi
+    done
+fi
+
+printf "Now edit /etc/fstab\n\n"
+
