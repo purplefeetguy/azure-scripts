@@ -61,6 +61,7 @@ for thisType in ${ALL_TYPES};do
 		if [ ! -d "${homeDir}" ]; then ${ECHO} "sudo mkdir ${homeDir}; \\";fi; \
 		if [ "${RC}" != "0" ]; then \
 			${ECHO} "sudo useradd -d ${homeDir} -g ${groupNum} -u ${userNum} ${thisUser}; \\"; \
+			${ECHO} "sudo usermod -G ${groupAdd} ${thisUser}; \\"; \
 			${ECHO} "sudo passwd ${thisUser}; \\"; \
 			${ECHO} "sudo chown ${thisUser} ${homeDir}; \\"; \
 			${ECHO} "sudo chgrp ${groupNum} ${homeDir}; \\"; \
