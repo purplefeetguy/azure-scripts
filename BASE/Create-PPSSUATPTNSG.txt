@@ -1,0 +1,584 @@
+﻿<#
+.SYNOPSIS
+	This script creates NSG rules for the PROS UAT/PT environment.
+	
+.DESCRIPTION
+	This script creates NSG rules for the PROS UAT/PT environment.
+	
+.NOTES
+	Author: Ed Mondek
+	Date: 7/27/2015
+	Revision: 1.0
+
+.CHANGELOG
+    1.0  7/27/2015  Ed Mondek  Initial commit
+#>
+
+# Sign in to your Azure account
+Add-AzureAccount
+
+# Initialize variables
+$subscriptionName = 'PROS UATPT'
+$vnetName = 'ppssuatptwuvnet'
+$location = 'West US'
+
+# Set the current subscription
+Select-AzureSubscription -SubscriptionName $subscriptionName
+
+### Configure the NSG for the Web subnet ###
+$nsgName = 'Web-NSG'
+$subnetName = 'Web'
+
+# Create the NSG for the Web subnet if it does not already exist
+$webNSG = New-AzureNetworkSecurityGroup -Name $nsgName -Location $location -Label 'Network Security Group for the Web subnet in West US'
+
+# Get info for the NSG assigned to the Web subnet
+<#
+$webNSG = Get-AzureNetworkSecurityGroup -Name $nsgName
+Get-AzureNetworkSecurityGroup -Name $nsgName -Detailed
+Get-AzureNetworkSecurityGroup -Name $nsgName -Detailed > Web_NSG.txt
+Get-AzureNetworkSecurityGroupForSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName -Detailed
+#>
+
+# Assign the NSG to the Web subnet
+<#
+$webNSG | Set-AzureNetworkSecurityGroupToSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName
+#>
+
+# Remove the NSG assigned to the Web subnet
+<#
+Remove-AzureNetworkSecurityGroupFromSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName -Name $nsgName
+Remove-AzureNetworkSecurityGroup -Name $nsgName
+#>
+
+# Define the NSG rules for the Web subnet
+$webNSG | Set-AzureNetworkSecurityRule -Name 'Web_HTTPS_Inbound_Allow' -Type Inbound -Priority 100 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '443' -Protocol 'TCP'
+$webNSG | Set-AzureNetworkSecurityRule -Name 'Web_SSH_Inbound_Allow' -Type Inbound -Priority 200 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '22' -Protocol 'TCP'
+$webNSG | Set-AzureNetworkSecurityRule -Name 'Web_VNet_Inbound_Deny' -Type Inbound -Priority 1000 -Action Deny -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '*' -Protocol '*'
+$webNSG | Set-AzureNetworkSecurityRule -Name 'Web_Internet_Inbound_Deny' -Type Inbound -Priority 1001 -Action Deny -SourceAddressPrefix 'INTERNET' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '*' -Protocol '*'
+
+$webNSG | Set-AzureNetworkSecurityRule -Name 'OAM_Outbound_Allow_1' -Type Outbound -Priority 100 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.94' -DestinationPortRange '5575' -Protocol 'TCP'
+$webNSG | Set-AzureNetworkSecurityRule -Name 'OAM_Outbound_Allow_2' -Type Outbound -Priority 101 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.23.12.18' -DestinationPortRange '5575' -Protocol 'TCP'
+$webNSG | Set-AzureNetworkSecurityRule -Name 'App_HTTPS_Outbound_Allow' -Type Outbound -Priority 200 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.17.34.64/26' -DestinationPortRange '443' -Protocol 'TCP'
+$webNSG | Set-AzureNetworkSecurityRule -Name 'App_HTTP_Outbound_Allow' -Type Outbound -Priority 201 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.17.34.64/26' -DestinationPortRange '8080' -Protocol 'TCP'
+$webNSG | Set-AzureNetworkSecurityRule -Name 'Web_VNet_Outbound_Deny' -Type Outbound -Priority 1000 -Action Deny -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix 'VIRTUAL_NETWORK' -DestinationPortRange '*' -Protocol '*'
+$webNSG | Set-AzureNetworkSecurityRule -Name 'Web_Internet_Outbound_Deny' -Type Outbound -Priority 2000 -Action Deny -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix 'INTERNET' -DestinationPortRange '*' -Protocol '*'
+
+# Assign the NSG to the Web subnet
+$webNSG | Set-AzureNetworkSecurityGroupToSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName
+
+### Configure the NSG for the App subnet ###
+$nsgName = 'App-NSG'
+$subnetName = 'App'
+
+# Create the NSG for the App subnet if it does not already exist
+$appNSG = New-AzureNetworkSecurityGroup -Name $nsgName -Location $location -Label 'Network Security Group for the App subnet in West US'
+
+# Get info for the NSG assigned to the App subnet
+<#
+$appNSG = Get-AzureNetworkSecurityGroup -Name $nsgName
+Get-AzureNetworkSecurityGroup -Name $nsgName -Detailed
+Get-AzureNetworkSecurityGroup -Name $nsgName -Detailed > App_NSG.txt
+Get-AzureNetworkSecurityGroupForSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName -Detailed
+#>
+
+# Assign the NSG to the App subnet
+<#
+$appNSG | Set-AzureNetworkSecurityGroupToSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName
+#>
+
+# Remove the NSG assigned to the App subnet
+<#
+Remove-AzureNetworkSecurityGroupFromSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName -Name $nsgName
+Remove-AzureNetworkSecurityGroup -Name $nsgName
+#>
+
+# Define the NSG rules for the App subnet
+
+# Active Directory rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NamedServer_Outbound_Allow_1' -Type Outbound -Priority 100 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '42' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_DNS_Outbound_Allow_1' -Type Outbound -Priority 101 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '53' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_Kerberos_Outbound_Allow_1' -Type Outbound -Priority 102 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '88' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_RPC_Outbound_Allow_1' -Type Outbound -Priority 103 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '135' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NetBios_Outbound_Allow_1' -Type Outbound -Priority 104 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAP_Outbound_Allow_1' -Type Outbound -Priority 105 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_KerbPwd_Outbound_Allow_1' -Type Outbound -Priority 106 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '464' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAPSSL_Outbound_Allow_1' -Type Outbound -Priority 107 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '636' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_GlobCat_Outbound_Allow_1' -Type Outbound -Priority 108 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '3268-3269' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NFS_Outbound_Allow_1' -Type Outbound -Priority 109 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '1025' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_DCOM_Outbound_Allow_1' -Type Outbound -Priority 110 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '1026' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_SMB_Outbound_Allow_1' -Type Outbound -Priority 111 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '445' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP1_Outbound_Allow_1' -Type Outbound -Priority 112 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '1025-5000' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP2_Outbound_Allow_1' -Type Outbound -Priority 113 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '49152-65535' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecNAT_Outbound_Allow_1' -Type Outbound -Priority 114 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '4500' -Protocol 'UDP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecISAKMP_Outbound_Allow_1' -Type Outbound -Priority 115 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '500' -Protocol 'UDP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NTP_Outbound_Allow_1' -Type Outbound -Priority 116 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '123' -Protocol 'UDP'
+
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NamedServer_Outbound_Allow_2' -Type Outbound -Priority 117 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '42' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_DNS_Outbound_Allow_2' -Type Outbound -Priority 118 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '53' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_Kerberos_Outbound_Allow_2' -Type Outbound -Priority 119 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '88' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_RPC_Outbound_Allow_2' -Type Outbound -Priority 120 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '135' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NetBios_Outbound_Allow_2' -Type Outbound -Priority 121 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAP_Outbound_Allow_2' -Type Outbound -Priority 122 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_KerbPwd_Outbound_Allow_2' -Type Outbound -Priority 123 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '464' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAPSSL_Outbound_Allow_2' -Type Outbound -Priority 124 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '636' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_GlobCat_Outbound_Allow_2' -Type Outbound -Priority 125 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '3268-3269' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NFS_Outbound_Allow_2' -Type Outbound -Priority 126 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '1025' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_DCOM_Outbound_Allow_2' -Type Outbound -Priority 127 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '1026' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_SMB_Outbound_Allow_2' -Type Outbound -Priority 128 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '445' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP1_Outbound_Allow_2' -Type Outbound -Priority 129 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '1025-5000' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP2_Outbound_Allow_2' -Type Outbound -Priority 130 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '49152-65535' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecNAT_Outbound_Allow_2' -Type Outbound -Priority 131 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '4500' -Protocol 'UDP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecISAKMP_Outbound_Allow_2' -Type Outbound -Priority 132 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '500' -Protocol 'UDP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NTP_Outbound_Allow_2' -Type Outbound -Priority 133 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '123' -Protocol 'UDP'
+
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NamedServer_Outbound_Allow_3' -Type Outbound -Priority 134 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '42' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_DNS_Outbound_Allow_3' -Type Outbound -Priority 135 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '53' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_Kerberos_Outbound_Allow_3' -Type Outbound -Priority 136 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '88' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_RPC_Outbound_Allow_3' -Type Outbound -Priority 137 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '135' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NetBios_Outbound_Allow_3' -Type Outbound -Priority 138 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAP_Outbound_Allow_3' -Type Outbound -Priority 139 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_KerbPwd_Outbound_Allow_3' -Type Outbound -Priority 140 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '464' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAPSSL_Outbound_Allow_3' -Type Outbound -Priority 141 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '636' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_GlobCat_Outbound_Allow_3' -Type Outbound -Priority 142 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '3268-3269' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NFS_Outbound_Allow_3' -Type Outbound -Priority 143 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '1025' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_DCOM_Outbound_Allow_3' -Type Outbound -Priority 144 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '1026' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_SMB_Outbound_Allow_3' -Type Outbound -Priority 145 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '445' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP1_Outbound_Allow_3' -Type Outbound -Priority 146 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '1025-5000' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP2_Outbound_Allow_3' -Type Outbound -Priority 147 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '49152-65535' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecNAT_Outbound_Allow_3' -Type Outbound -Priority 148 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '4500' -Protocol 'UDP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecISAKMP_Outbound_Allow_3' -Type Outbound -Priority 149 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '500' -Protocol 'UDP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AD_NTP_Outbound_Allow_3' -Type Outbound -Priority 150 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '123' -Protocol 'UDP'
+
+# RDP rules - RECOMMEND USING -SourceAddressPrefix 'VIRTUAL_NETWORK' to simplify
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_1' -Type Inbound -Priority 100 -Action Allow -SourceAddressPrefix '10.222.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_1' -Type Inbound -Priority 101 -Action Allow -SourceAddressPrefix '10.222.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_1' -Type Inbound -Priority 102 -Action Allow -SourceAddressPrefix '10.222.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_2' -Type Inbound -Priority 103 -Action Allow -SourceAddressPrefix '10.237.132.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_2' -Type Inbound -Priority 104 -Action Allow -SourceAddressPrefix '10.237.132.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_2' -Type Inbound -Priority 105 -Action Allow -SourceAddressPrefix '10.237.132.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_3' -Type Inbound -Priority 106 -Action Allow -SourceAddressPrefix '10.237.138.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_3' -Type Inbound -Priority 107 -Action Allow -SourceAddressPrefix '10.237.138.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_3' -Type Inbound -Priority 108 -Action Allow -SourceAddressPrefix '10.237.138.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_4' -Type Inbound -Priority 109 -Action Allow -SourceAddressPrefix '10.237.146.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_4' -Type Inbound -Priority 110 -Action Allow -SourceAddressPrefix '10.237.146.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_4' -Type Inbound -Priority 111 -Action Allow -SourceAddressPrefix '10.237.146.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_5' -Type Inbound -Priority 112 -Action Allow -SourceAddressPrefix '10.238.25.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_5' -Type Inbound -Priority 113 -Action Allow -SourceAddressPrefix '10.238.25.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_5' -Type Inbound -Priority 114 -Action Allow -SourceAddressPrefix '10.238.25.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_6' -Type Inbound -Priority 115 -Action Allow -SourceAddressPrefix '10.243.213.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_6' -Type Inbound -Priority 116 -Action Allow -SourceAddressPrefix '10.243.213.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_6' -Type Inbound -Priority 117 -Action Allow -SourceAddressPrefix '10.243.213.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_7' -Type Inbound -Priority 118 -Action Allow -SourceAddressPrefix '10.243.214.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_7' -Type Inbound -Priority 119 -Action Allow -SourceAddressPrefix '10.243.214.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_7' -Type Inbound -Priority 120 -Action Allow -SourceAddressPrefix '10.243.214.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_8' -Type Inbound -Priority 121 -Action Allow -SourceAddressPrefix '10.246.196.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_8' -Type Inbound -Priority 122 -Action Allow -SourceAddressPrefix '10.246.196.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_8' -Type Inbound -Priority 123 -Action Allow -SourceAddressPrefix '10.246.196.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_9' -Type Inbound -Priority 124 -Action Allow -SourceAddressPrefix '10.246.197.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_9' -Type Inbound -Priority 125 -Action Allow -SourceAddressPrefix '10.246.197.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_9' -Type Inbound -Priority 126 -Action Allow -SourceAddressPrefix '10.246.197.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_10' -Type Inbound -Priority 127 -Action Allow -SourceAddressPrefix '10.246.230.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_10' -Type Inbound -Priority 128 -Action Allow -SourceAddressPrefix '10.246.230.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_10' -Type Inbound -Priority 129 -Action Allow -SourceAddressPrefix '10.246.230.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_11' -Type Inbound -Priority 130 -Action Allow -SourceAddressPrefix '10.248.88.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_11' -Type Inbound -Priority 131 -Action Allow -SourceAddressPrefix '10.248.88.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_11' -Type Inbound -Priority 132 -Action Allow -SourceAddressPrefix '10.248.88.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_12' -Type Inbound -Priority 133 -Action Allow -SourceAddressPrefix '10.239.16.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_12' -Type Inbound -Priority 134 -Action Allow -SourceAddressPrefix '10.239.16.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_12' -Type Inbound -Priority 135 -Action Allow -SourceAddressPrefix '10.239.16.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_13' -Type Inbound -Priority 136 -Action Allow -SourceAddressPrefix '10.239.12.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_13' -Type Inbound -Priority 137 -Action Allow -SourceAddressPrefix '10.239.12.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_13' -Type Inbound -Priority 138 -Action Allow -SourceAddressPrefix '10.239.12.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_14' -Type Inbound -Priority 139 -Action Allow -SourceAddressPrefix '10.239.40.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_14' -Type Inbound -Priority 140 -Action Allow -SourceAddressPrefix '10.239.40.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_14' -Type Inbound -Priority 141 -Action Allow -SourceAddressPrefix '10.239.40.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_15' -Type Inbound -Priority 142 -Action Allow -SourceAddressPrefix '10.239.41.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_15' -Type Inbound -Priority 143 -Action Allow -SourceAddressPrefix '10.239.41.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_15' -Type Inbound -Priority 144 -Action Allow -SourceAddressPrefix '10.239.41.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_16' -Type Inbound -Priority 145 -Action Allow -SourceAddressPrefix '10.223.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_16' -Type Inbound -Priority 146 -Action Allow -SourceAddressPrefix '10.223.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_16' -Type Inbound -Priority 147 -Action Allow -SourceAddressPrefix '10.223.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+
+# McAfee EPO rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_1' -Type Outbound -Priority 200 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_2' -Type Outbound -Priority 201 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '82' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_3' -Type Outbound -Priority 202 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '443' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_4' -Type Outbound -Priority 203 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '8081' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_5' -Type Outbound -Priority 204 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '1434' -Protocol 'UDP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_6' -Type Outbound -Priority 205 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '8082' -Protocol 'UDP'
+
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_7' -Type Outbound -Priority 206 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_8' -Type Outbound -Priority 207 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '82' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_9' -Type Outbound -Priority 208 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '443' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_10' -Type Outbound -Priority 209 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '8081' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_11' -Type Outbound -Priority 210 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '1434' -Protocol 'UDP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_12' -Type Outbound -Priority 211 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '8082' -Protocol 'UDP'
+
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_13' -Type Outbound -Priority 212 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_14' -Type Outbound -Priority 213 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '82' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_15' -Type Outbound -Priority 214 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '443' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_16' -Type Outbound -Priority 215 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '8081' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_17' -Type Outbound -Priority 216 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '1434' -Protocol 'UDP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_18' -Type Outbound -Priority 217 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '8082' -Protocol 'UDP'
+
+# WSUS rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'WSUS_HTTP_Outbound_Allow_1' -Type Outbound -Priority 300 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.46' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'WSUS_HTTPS_Outbound_Allow_1' -Type Outbound -Priority 301 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.46' -DestinationPortRange '443' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'WSUS_HTTP_Outbound_Allow_2' -Type Outbound -Priority 302 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.22.191.145' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'WSUS_HTTPS_Outbound_Allow_2' -Type Outbound -Priority 303 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.22.191.145' -DestinationPortRange '443' -Protocol 'TCP'
+
+# KMS rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'KMS_Outbound_Allow_1' -Type Outbound -Priority 400 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.52' -DestinationPortRange '1688' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'KMS_Outbound_Allow_2' -Type Outbound -Priority 401 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.146' -DestinationPortRange '1688' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'KMS_Outbound_Allow_3' -Type Outbound -Priority 402 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.21.98.80' -DestinationPortRange '1688' -Protocol 'TCP'
+
+# Tivoli rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Tivoli_Outbound_Allow_1' -Type Outbound -Priority 500 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.92.11' -DestinationPortRange '1918' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Tivoli_Outbound_Allow_2' -Type Outbound -Priority 501 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.92.12' -DestinationPortRange '1918' -Protocol '*'
+
+# CMDB rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_1' -Type Outbound -Priority 600 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '22' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_2' -Type Outbound -Priority 601 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_3' -Type Outbound -Priority 602 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '135' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_4' -Type Outbound -Priority 603 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '138-139' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_5' -Type Outbound -Priority 604 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '443' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_6' -Type Outbound -Priority 605 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '445' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_7' -Type Outbound -Priority 606 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '513' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_8' -Type Outbound -Priority 607 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '902' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_9' -Type Outbound -Priority 608 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '1024-65535' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_10' -Type Outbound -Priority 609 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '161' -Protocol 'UDP'
+
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_11' -Type Outbound -Priority 610 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '22' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_12' -Type Outbound -Priority 611 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_13' -Type Outbound -Priority 612 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '135' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_14' -Type Outbound -Priority 613 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '138-139' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_15' -Type Outbound -Priority 614 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '443' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_16' -Type Outbound -Priority 615 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '445' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_17' -Type Outbound -Priority 616 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '513' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_18' -Type Outbound -Priority 617 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '902' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_19' -Type Outbound -Priority 618 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '1024-65535' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_20' -Type Outbound -Priority 619 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '161' -Protocol 'UDP'
+
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_21' -Type Outbound -Priority 620 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '22' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_22' -Type Outbound -Priority 621 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_23' -Type Outbound -Priority 622 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '135' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_24' -Type Outbound -Priority 623 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '138-139' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_25' -Type Outbound -Priority 624 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '443' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_26' -Type Outbound -Priority 625 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '445' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_27' -Type Outbound -Priority 626 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '513' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_28' -Type Outbound -Priority 627 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '902' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_29' -Type Outbound -Priority 628 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '1024-65535' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_30' -Type Outbound -Priority 629 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '161' -Protocol 'UDP'
+
+# SNMP rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'SNMP_Outbound_Allow_1' -Type Outbound -Priority 700 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.38.2' -DestinationPortRange '161-162' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'SNMP_Outbound_Allow_2' -Type Outbound -Priority 701 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.38.3' -DestinationPortRange '161-162' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'SNMP_Outbound_Allow_3' -Type Outbound -Priority 702 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.38.8' -DestinationPortRange '161-162' -Protocol '*'
+
+# BIND DNS rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'BINDDNS_Outbound_Allow_1' -Type Outbound -Priority 800 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.1' -DestinationPortRange '53' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'BINDDNS_Outbound_Allow_2' -Type Outbound -Priority 801 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.2' -DestinationPortRange '53' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'BINDDNS_Outbound_Allow_3' -Type Outbound -Priority 802 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.41.161' -DestinationPortRange '53' -Protocol '*'
+
+# Internet Proxy rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Proxy_Outbound_Allow_1' -Type Outbound -Priority 900 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.97.24' -DestinationPortRange '8080' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Proxy_Outbound_Allow_2' -Type Outbound -Priority 901 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.97.25' -DestinationPortRange '8080' -Protocol 'TCP'
+
+# Stealth AUDIT rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_1' -Type Outbound -Priority 1000 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_2' -Type Outbound -Priority 1001 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '135-139' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_3' -Type Outbound -Priority 1002 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '389' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_4' -Type Outbound -Priority 1003 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '445' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_5' -Type Outbound -Priority 1004 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '1024-1100' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_6' -Type Outbound -Priority 1005 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '135' -Protocol 'UDP'
+
+# ILMT rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'ILMT_Outbound_Allow_1' -Type Outbound -Priority 1100 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.21.54' -DestinationPortRange '9977' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'ILMT_Outbound_Allow_2' -Type Outbound -Priority 1101 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.21.54' -DestinationPortRange '9988' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'ILMT_Outbound_Allow_3' -Type Outbound -Priority 1102 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.21.54' -DestinationPortRange '9999' -Protocol 'TCP'
+
+# SSH rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'SSH_Inbound_Allow' -Type Inbound -Priority 1200 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '22' -Protocol 'TCP'
+
+# Web tier to App tier rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Web_HTTPS_Inbound_Allow' -Type Inbound -Priority 1300 -Action Allow -SourceAddressPrefix '172.17.34.0/26' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '443' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Web_HTTP_Inbound_Allow' -Type Inbound -Priority 1301 -Action Allow -SourceAddressPrefix '172.17.34.0/26' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '8080' -Protocol 'TCP'
+
+# App tier to DB tier rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'DB_Outbound_Allow_1' -Type Outbound -Priority 1400 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.17.34.128/27' -DestinationPortRange '2383' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'DB_Outbound_Allow_2' -Type Outbound -Priority 1401 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.17.34.128/27' -DestinationPortRange '1433' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'DB_Outbound_Allow_3' -Type Outbound -Priority 1402 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.17.34.128/27' -DestinationPortRange '80' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'DB_Inbound_Allow_4' -Type Inbound -Priority 1403 -Action Allow -SourceAddressPrefix '172.17.34.128/27' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '2383' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'DB_Inbound_Allow_5' -Type Inbound -Priority 1404 -Action Allow -SourceAddressPrefix '172.17.34.128/27' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '1433' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'DB_Inbound_Allow_6' -Type Inbound -Priority 1405 -Action Allow -SourceAddressPrefix '172.17.34.128/27' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '80' -Protocol 'TCP'
+
+# PROS rules - NEED TO REVIEW THESE RULES!!!
+<#
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Remote_Access_Inbound_Allow' -Type Inbound -Priority 1500 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '23' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'SFTP_Inbound_Allow' -Type Inbound -Priority 1501 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '20-21' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'HTTP_Inbound_Allow' -Type Inbound -Priority 1502 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '8080' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Tomcat_Inbound_Allow' -Type Inbound -Priority 1503 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '8100' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'AJP_Inbound_Allow' -Type Inbound -Priority 1504 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '8200' -Protocol 'TCP'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Java_RMI_Inbound_Allow' -Type Inbound -Priority 1505 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '1099' -Protocol 'TCP'
+#>
+
+# Deny rules
+$appNSG | Set-AzureNetworkSecurityRule -Name 'VNet_Inbound_Deny' -Type Inbound -Priority 4000 -Action Deny -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '*' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'VNet_Outbound_Deny' -Type Outbound -Priority 4000 -Action Deny -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix 'VIRTUAL_NETWORK' -DestinationPortRange '*' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Internet_Inbound_Deny' -Type Inbound -Priority 4001 -Action Deny -SourceAddressPrefix 'INTERNET' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '*' -Protocol '*'
+$appNSG | Set-AzureNetworkSecurityRule -Name 'Internet_Outbound_Deny' -Type Outbound -Priority 4001 -Action Deny -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix 'INTERNET' -DestinationPortRange '*' -Protocol '*'
+
+# Assign the NSG to the App subnet
+$appNSG | Set-AzureNetworkSecurityGroupToSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName
+
+### Configure the NSG for the DB subnet ###
+$nsgName = 'DB-NSG'
+$subnetName = 'DB'
+
+# Create the NSG for the DB subnet if it does not already exist
+$dbNSG = New-AzureNetworkSecurityGroup -Name $nsgName -Location $location -Label 'Network Security Group for the DB subnet in West US'
+
+# Get info for the NSG assigned to the DB subnet
+<#
+$dbNSG = Get-AzureNetworkSecurityGroup -Name $nsgName
+Get-AzureNetworkSecurityGroup -Name $nsgName -Detailed
+Get-AzureNetworkSecurityGroup -Name $nsgName -Detailed > DB_NSG.txt
+Get-AzureNetworkSecurityGroupForSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName -Detailed
+#>
+
+# Assign the NSG to the DB subnet
+<#
+$dbNSG | Set-AzureNetworkSecurityGroupToSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName
+#>
+
+# Remove the NSG assigned to the DB subnet
+<#
+Remove-AzureNetworkSecurityGroupFromSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName -Name $nsgName
+Remove-AzureNetworkSecurityGroup -Name $nsgName
+#>
+
+# Define the NSG rules for the DB subnet
+
+# Active Directory rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NamedServer_Outbound_Allow_1' -Type Outbound -Priority 100 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '42' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_DNS_Outbound_Allow_1' -Type Outbound -Priority 101 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '53' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_Kerberos_Outbound_Allow_1' -Type Outbound -Priority 102 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '88' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_RPC_Outbound_Allow_1' -Type Outbound -Priority 103 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '135' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NetBios_Outbound_Allow_1' -Type Outbound -Priority 104 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAP_Outbound_Allow_1' -Type Outbound -Priority 105 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_KerbPwd_Outbound_Allow_1' -Type Outbound -Priority 106 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '464' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAPSSL_Outbound_Allow_1' -Type Outbound -Priority 107 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '636' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_GlobCat_Outbound_Allow_1' -Type Outbound -Priority 108 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '3268-3269' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NFS_Outbound_Allow_1' -Type Outbound -Priority 109 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '1025' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_DCOM_Outbound_Allow_1' -Type Outbound -Priority 110 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '1026' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_SMB_Outbound_Allow_1' -Type Outbound -Priority 111 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '445' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP1_Outbound_Allow_1' -Type Outbound -Priority 112 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '1025-5000' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP2_Outbound_Allow_1' -Type Outbound -Priority 113 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '49152-65535' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecNAT_Outbound_Allow_1' -Type Outbound -Priority 114 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '4500' -Protocol 'UDP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecISAKMP_Outbound_Allow_1' -Type Outbound -Priority 115 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '500' -Protocol 'UDP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NTP_Outbound_Allow_1' -Type Outbound -Priority 116 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.186.140/30' -DestinationPortRange '123' -Protocol 'UDP'
+
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NamedServer_Outbound_Allow_2' -Type Outbound -Priority 117 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '42' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_DNS_Outbound_Allow_2' -Type Outbound -Priority 118 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '53' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_Kerberos_Outbound_Allow_2' -Type Outbound -Priority 119 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '88' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_RPC_Outbound_Allow_2' -Type Outbound -Priority 120 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '135' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NetBios_Outbound_Allow_2' -Type Outbound -Priority 121 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAP_Outbound_Allow_2' -Type Outbound -Priority 122 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_KerbPwd_Outbound_Allow_2' -Type Outbound -Priority 123 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '464' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAPSSL_Outbound_Allow_2' -Type Outbound -Priority 124 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '636' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_GlobCat_Outbound_Allow_2' -Type Outbound -Priority 125 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '3268-3269' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NFS_Outbound_Allow_2' -Type Outbound -Priority 126 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '1025' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_DCOM_Outbound_Allow_2' -Type Outbound -Priority 127 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '1026' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_SMB_Outbound_Allow_2' -Type Outbound -Priority 128 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '445' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP1_Outbound_Allow_2' -Type Outbound -Priority 129 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '1025-5000' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP2_Outbound_Allow_2' -Type Outbound -Priority 130 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '49152-65535' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecNAT_Outbound_Allow_2' -Type Outbound -Priority 131 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '4500' -Protocol 'UDP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecISAKMP_Outbound_Allow_2' -Type Outbound -Priority 132 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '500' -Protocol 'UDP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NTP_Outbound_Allow_2' -Type Outbound -Priority 133 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.60/30' -DestinationPortRange '123' -Protocol 'UDP'
+
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NamedServer_Outbound_Allow_3' -Type Outbound -Priority 134 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '42' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_DNS_Outbound_Allow_3' -Type Outbound -Priority 135 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '53' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_Kerberos_Outbound_Allow_3' -Type Outbound -Priority 136 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '88' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_RPC_Outbound_Allow_3' -Type Outbound -Priority 137 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '135' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NetBios_Outbound_Allow_3' -Type Outbound -Priority 138 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAP_Outbound_Allow_3' -Type Outbound -Priority 139 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_KerbPwd_Outbound_Allow_3' -Type Outbound -Priority 140 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '464' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_LDAPSSL_Outbound_Allow_3' -Type Outbound -Priority 141 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '636' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_GlobCat_Outbound_Allow_3' -Type Outbound -Priority 142 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '3268-3269' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NFS_Outbound_Allow_3' -Type Outbound -Priority 143 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '1025' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_DCOM_Outbound_Allow_3' -Type Outbound -Priority 144 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '1026' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_SMB_Outbound_Allow_3' -Type Outbound -Priority 145 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '445' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP1_Outbound_Allow_3' -Type Outbound -Priority 146 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '1025-5000' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_TCP2_Outbound_Allow_3' -Type Outbound -Priority 147 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '49152-65535' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecNAT_Outbound_Allow_3' -Type Outbound -Priority 148 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '4500' -Protocol 'UDP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_IPSecISAKMP_Outbound_Allow_3' -Type Outbound -Priority 149 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '500' -Protocol 'UDP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'AD_NTP_Outbound_Allow_3' -Type Outbound -Priority 150 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.205.112/30' -DestinationPortRange '123' -Protocol 'UDP'
+
+# RDP rules - RECOMMEND USING -SourceAddressPrefix 'VIRTUAL_NETWORK' to simplify
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_1' -Type Inbound -Priority 100 -Action Allow -SourceAddressPrefix '10.222.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_1' -Type Inbound -Priority 101 -Action Allow -SourceAddressPrefix '10.222.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_1' -Type Inbound -Priority 102 -Action Allow -SourceAddressPrefix '10.222.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_2' -Type Inbound -Priority 103 -Action Allow -SourceAddressPrefix '10.237.132.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_2' -Type Inbound -Priority 104 -Action Allow -SourceAddressPrefix '10.237.132.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_2' -Type Inbound -Priority 105 -Action Allow -SourceAddressPrefix '10.237.132.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_3' -Type Inbound -Priority 106 -Action Allow -SourceAddressPrefix '10.237.138.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_3' -Type Inbound -Priority 107 -Action Allow -SourceAddressPrefix '10.237.138.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_3' -Type Inbound -Priority 108 -Action Allow -SourceAddressPrefix '10.237.138.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_4' -Type Inbound -Priority 109 -Action Allow -SourceAddressPrefix '10.237.146.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_4' -Type Inbound -Priority 110 -Action Allow -SourceAddressPrefix '10.237.146.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_4' -Type Inbound -Priority 111 -Action Allow -SourceAddressPrefix '10.237.146.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_5' -Type Inbound -Priority 112 -Action Allow -SourceAddressPrefix '10.238.25.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_5' -Type Inbound -Priority 113 -Action Allow -SourceAddressPrefix '10.238.25.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_5' -Type Inbound -Priority 114 -Action Allow -SourceAddressPrefix '10.238.25.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_6' -Type Inbound -Priority 115 -Action Allow -SourceAddressPrefix '10.243.213.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_6' -Type Inbound -Priority 116 -Action Allow -SourceAddressPrefix '10.243.213.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_6' -Type Inbound -Priority 117 -Action Allow -SourceAddressPrefix '10.243.213.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_7' -Type Inbound -Priority 118 -Action Allow -SourceAddressPrefix '10.243.214.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_7' -Type Inbound -Priority 119 -Action Allow -SourceAddressPrefix '10.243.214.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_7' -Type Inbound -Priority 120 -Action Allow -SourceAddressPrefix '10.243.214.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_8' -Type Inbound -Priority 121 -Action Allow -SourceAddressPrefix '10.246.196.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_8' -Type Inbound -Priority 122 -Action Allow -SourceAddressPrefix '10.246.196.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_8' -Type Inbound -Priority 123 -Action Allow -SourceAddressPrefix '10.246.196.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_9' -Type Inbound -Priority 124 -Action Allow -SourceAddressPrefix '10.246.197.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_9' -Type Inbound -Priority 125 -Action Allow -SourceAddressPrefix '10.246.197.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_9' -Type Inbound -Priority 126 -Action Allow -SourceAddressPrefix '10.246.197.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_10' -Type Inbound -Priority 127 -Action Allow -SourceAddressPrefix '10.246.230.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_10' -Type Inbound -Priority 128 -Action Allow -SourceAddressPrefix '10.246.230.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_10' -Type Inbound -Priority 129 -Action Allow -SourceAddressPrefix '10.246.230.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_11' -Type Inbound -Priority 130 -Action Allow -SourceAddressPrefix '10.248.88.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_11' -Type Inbound -Priority 131 -Action Allow -SourceAddressPrefix '10.248.88.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_11' -Type Inbound -Priority 132 -Action Allow -SourceAddressPrefix '10.248.88.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_12' -Type Inbound -Priority 133 -Action Allow -SourceAddressPrefix '10.239.16.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_12' -Type Inbound -Priority 134 -Action Allow -SourceAddressPrefix '10.239.16.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_12' -Type Inbound -Priority 135 -Action Allow -SourceAddressPrefix '10.239.16.0/22' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_13' -Type Inbound -Priority 136 -Action Allow -SourceAddressPrefix '10.239.12.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_13' -Type Inbound -Priority 137 -Action Allow -SourceAddressPrefix '10.239.12.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_13' -Type Inbound -Priority 138 -Action Allow -SourceAddressPrefix '10.239.12.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_14' -Type Inbound -Priority 139 -Action Allow -SourceAddressPrefix '10.239.40.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_14' -Type Inbound -Priority 140 -Action Allow -SourceAddressPrefix '10.239.40.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_14' -Type Inbound -Priority 141 -Action Allow -SourceAddressPrefix '10.239.40.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_15' -Type Inbound -Priority 142 -Action Allow -SourceAddressPrefix '10.239.41.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_15' -Type Inbound -Priority 143 -Action Allow -SourceAddressPrefix '10.239.41.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_15' -Type Inbound -Priority 144 -Action Allow -SourceAddressPrefix '10.239.41.0/24' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_NetBios_Inbound_Allow_16' -Type Inbound -Priority 145 -Action Allow -SourceAddressPrefix '10.223.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '137-139' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_SMB_Inbound_Allow_16' -Type Inbound -Priority 146 -Action Allow -SourceAddressPrefix '10.223.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'RDP_Inbound_Allow_16' -Type Inbound -Priority 147 -Action Allow -SourceAddressPrefix '10.223.0.0/16' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '3389' -Protocol '*'
+
+# McAfee EPO rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_1' -Type Outbound -Priority 200 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_2' -Type Outbound -Priority 201 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '82' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_3' -Type Outbound -Priority 202 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '443' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_4' -Type Outbound -Priority 203 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '8081' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_5' -Type Outbound -Priority 204 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '1434' -Protocol 'UDP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_6' -Type Outbound -Priority 205 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.43.89' -DestinationPortRange '8082' -Protocol 'UDP'
+
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_7' -Type Outbound -Priority 206 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_8' -Type Outbound -Priority 207 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '82' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_9' -Type Outbound -Priority 208 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '443' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_10' -Type Outbound -Priority 209 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '8081' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_11' -Type Outbound -Priority 210 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '1434' -Protocol 'UDP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_12' -Type Outbound -Priority 211 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.55' -DestinationPortRange '8082' -Protocol 'UDP'
+
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_13' -Type Outbound -Priority 212 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_14' -Type Outbound -Priority 213 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '82' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_15' -Type Outbound -Priority 214 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '443' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_16' -Type Outbound -Priority 215 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '8081' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_17' -Type Outbound -Priority 216 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '1434' -Protocol 'UDP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'McAfee_Outbound_Allow_18' -Type Outbound -Priority 217 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.148' -DestinationPortRange '8082' -Protocol 'UDP'
+
+# WSUS rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'WSUS_HTTP_Outbound_Allow_1' -Type Outbound -Priority 300 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.46' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'WSUS_HTTPS_Outbound_Allow_1' -Type Outbound -Priority 301 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.94.46' -DestinationPortRange '443' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'WSUS_HTTP_Outbound_Allow_2' -Type Outbound -Priority 302 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.22.191.145' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'WSUS_HTTPS_Outbound_Allow_2' -Type Outbound -Priority 303 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.22.191.145' -DestinationPortRange '443' -Protocol 'TCP'
+
+# KMS rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'KMS_Outbound_Allow_1' -Type Outbound -Priority 400 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.52' -DestinationPortRange '1688' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'KMS_Outbound_Allow_2' -Type Outbound -Priority 401 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.146' -DestinationPortRange '1688' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'KMS_Outbound_Allow_3' -Type Outbound -Priority 402 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.21.98.80' -DestinationPortRange '1688' -Protocol 'TCP'
+
+# Tivoli rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Tivoli_Outbound_Allow_1' -Type Outbound -Priority 500 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.92.11' -DestinationPortRange '1918' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Tivoli_Outbound_Allow_2' -Type Outbound -Priority 501 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.92.12' -DestinationPortRange '1918' -Protocol '*'
+
+# CMDB rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_1' -Type Outbound -Priority 600 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '22' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_2' -Type Outbound -Priority 601 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_3' -Type Outbound -Priority 602 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '135' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_4' -Type Outbound -Priority 603 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '138-139' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_5' -Type Outbound -Priority 604 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '443' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_6' -Type Outbound -Priority 605 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '445' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_7' -Type Outbound -Priority 606 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '513' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_8' -Type Outbound -Priority 607 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '902' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_9' -Type Outbound -Priority 608 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '1024-65535' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_10' -Type Outbound -Priority 609 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.88.137' -DestinationPortRange '161' -Protocol 'UDP'
+
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_11' -Type Outbound -Priority 610 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '22' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_12' -Type Outbound -Priority 611 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_13' -Type Outbound -Priority 612 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '135' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_14' -Type Outbound -Priority 613 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '138-139' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_15' -Type Outbound -Priority 614 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '443' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_16' -Type Outbound -Priority 615 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '445' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_17' -Type Outbound -Priority 616 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '513' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_18' -Type Outbound -Priority 617 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '902' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_19' -Type Outbound -Priority 618 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '1024-65535' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_20' -Type Outbound -Priority 619 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.56/30' -DestinationPortRange '161' -Protocol 'UDP'
+
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_21' -Type Outbound -Priority 620 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '22' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_22' -Type Outbound -Priority 621 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_23' -Type Outbound -Priority 622 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '135' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_24' -Type Outbound -Priority 623 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '138-139' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_25' -Type Outbound -Priority 624 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '443' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_26' -Type Outbound -Priority 625 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '445' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_27' -Type Outbound -Priority 626 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '513' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_28' -Type Outbound -Priority 627 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '902' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_29' -Type Outbound -Priority 628 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '1024-65535' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'CMDB_Outbound_Allow_30' -Type Outbound -Priority 629 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.29.90.161' -DestinationPortRange '161' -Protocol 'UDP'
+
+# SNMP rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'SNMP_Outbound_Allow_1' -Type Outbound -Priority 700 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.38.2' -DestinationPortRange '161-162' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'SNMP_Outbound_Allow_2' -Type Outbound -Priority 701 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.38.3' -DestinationPortRange '161-162' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'SNMP_Outbound_Allow_3' -Type Outbound -Priority 702 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.38.8' -DestinationPortRange '161-162' -Protocol '*'
+
+# BIND DNS rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'BINDDNS_Outbound_Allow_1' -Type Outbound -Priority 800 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.1' -DestinationPortRange '53' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'BINDDNS_Outbound_Allow_2' -Type Outbound -Priority 801 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.204.2' -DestinationPortRange '53' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'BINDDNS_Outbound_Allow_3' -Type Outbound -Priority 802 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.41.161' -DestinationPortRange '53' -Protocol '*'
+
+# Internet Proxy rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Proxy_Outbound_Allow_1' -Type Outbound -Priority 900 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.97.24' -DestinationPortRange '8080' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Proxy_Outbound_Allow_2' -Type Outbound -Priority 901 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.97.25' -DestinationPortRange '8080' -Protocol 'TCP'
+
+# Stealth AUDIT rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_1' -Type Outbound -Priority 1000 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_2' -Type Outbound -Priority 1001 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '135-139' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_3' -Type Outbound -Priority 1002 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '389' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_4' -Type Outbound -Priority 1003 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '445' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_5' -Type Outbound -Priority 1004 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '1024-1100' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Stealth_Outbound_Allow_6' -Type Outbound -Priority 1005 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.31.199.114' -DestinationPortRange '135' -Protocol 'UDP'
+
+# ILMT rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'ILMT_Outbound_Allow_1' -Type Outbound -Priority 1100 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.21.54' -DestinationPortRange '9977' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'ILMT_Outbound_Allow_2' -Type Outbound -Priority 1101 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.21.54' -DestinationPortRange '9988' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'ILMT_Outbound_Allow_3' -Type Outbound -Priority 1102 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.28.21.54' -DestinationPortRange '9999' -Protocol 'TCP'
+
+# SSH rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'SSH_Inbound_Allow' -Type Inbound -Priority 1200 -Action Allow -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '22' -Protocol 'TCP'
+
+# App tier to DB tier rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'App_Inbound_Allow_1' -Type Inbound -Priority 1400 -Action Allow -SourceAddressPrefix '172.17.34.64/26' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '2383' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'App_Inbound_Allow_2' -Type Inbound -Priority 1401 -Action Allow -SourceAddressPrefix '172.17.34.64/26' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '1433' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'App_Inbound_Allow_3' -Type Inbound -Priority 1402 -Action Allow -SourceAddressPrefix '172.17.34.64/26' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '80' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'App_Outbound_Allow_4' -Type Outbound -Priority 1403 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.17.34.64/26' -DestinationPortRange '2383' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'App_Outbound_Allow_5' -Type Outbound -Priority 1404 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.17.34.64/26' -DestinationPortRange '1433' -Protocol 'TCP'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'App_Outbound_Allow_6' -Type Outbound -Priority 1405 -Action Allow -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix '172.17.34.64/26' -DestinationPortRange '80' -Protocol 'TCP'
+
+# Deny rules
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'VNet_Inbound_Deny' -Type Inbound -Priority 4000 -Action Deny -SourceAddressPrefix 'VIRTUAL_NETWORK' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '*' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'VNet_Outbound_Deny' -Type Outbound -Priority 4000 -Action Deny -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix 'VIRTUAL_NETWORK' -DestinationPortRange '*' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Internet_Inbound_Deny' -Type Inbound -Priority 4001 -Action Deny -SourceAddressPrefix 'INTERNET' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '*' -Protocol '*'
+$dbNSG | Set-AzureNetworkSecurityRule -Name 'Internet_Outbound_Deny' -Type Outbound -Priority 4001 -Action Deny -SourceAddressPrefix '*' -SourcePortRange '*' -DestinationAddressPrefix 'INTERNET' -DestinationPortRange '*' -Protocol '*'
+
+# Assign the NSG to the DB subnet
+$dbNSG | Set-AzureNetworkSecurityGroupToSubnet -VirtualNetworkName $vnetName -SubnetName $subnetName
