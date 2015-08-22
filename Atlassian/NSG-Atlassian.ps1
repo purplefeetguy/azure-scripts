@@ -40,10 +40,27 @@ $Global:subnetName = 'WBA-ATL-WEB'
 Set-PSDebug -trace 0 -strict
 
 
-$Global:PRIORITY_START = 1000
+################################################################################
+# Azure Network Security Group Rule range for priority: 100 - 4096
+#
+$Global:INTERNET_PREFIX = "Internet_Inbound_Allow"
+$Global:INTERNET_PORT_NAMES = @("SSH","HTTPS","ODBC","STAR")
+$Global:INTERNET_PORT_NUMBERS = @{}
+$Global:INTERNET_PORT_NUMBERS = @{"SSH" = "22";"HTTPS" = "443";"ODBC" = "1521";"STAR" = "*"}
+$Global:PRIORITY_START = @{}
+$Global:PRIORITY_START.SSH = 200
+$Global:PRIORITY_START.HTTPS = 400
+$Global:PRIORITY_START.ODBC = 500
+$Global:PRIORITY_START.STAR = 900
+Write-ColorOutput "Green" "BOBFIX-CHANGE:  Handling all known ports"
+#
+################################################################################
 
+
+################################################################################
+# Setup Source Internet Addresses for WBA locations
+#
 $Global:SOURCE_ADDRESSES = @()
-Write-ColorOutput "Red" "BOBFIX-CHANGE:  Need to handle all SOURCE addresses"
 $Global:SOURCE_ADDRESSES += "83.103.45.48/28"
 $Global:SOURCE_ADDRESSES += "204.15.116.0/22"
 $Global:SOURCE_ADDRESSES += "63.73.199.0/24"
@@ -54,8 +71,8 @@ $Global:SOURCE_ADDRESSES += "95.172.74.0/24"
 $Global:SOURCE_ADDRESSES += "185.46.212.0/24"
 $Global:SOURCE_ADDRESSES += "193.130.87.58"
 $Global:SOURCE_ADDRESSES += "193.133.138.40"
+Write-ColorOutput "Magenta" "BOBFIX-CHANGE:  Need to handle all SOURCE addresses"
 
-Write-ColorOutput "Red" "BOBFIX-CHANGE:  Need to handle all required ports"
 
 Write-ColorOutput "Red" "BOBFIX-CHANGE:  Need to handle intra-Azure required ports"
 
@@ -63,12 +80,39 @@ $Global:currentNSG = $null
 
 $Global:NSG_DETAILED = $null
 
-Write-ColorOutput "Red" "BOBFIX-CHANGE:  Need to enable Creation when doesnt exist"
-$Global:PERFORM_CREATE = $false
 
+################################################################################
+# Setup Perform or not perform Creation of NSG
+#
+$Global:PERFORM_CREATE_NSG = $false
+if ($Global:PERFORM_CREATE_NSG -eq $true) { $Global:performCreateNSG = 0; $thisColor = "Green" } else { $Global:performCreateNSG = 1; $thisColor = "Red" }
+Write-ColorOutput "$thisColor" "BOBFIX:  Creation of Network Security Groups [GREEN:ENABLED / RED:DISABLED]"
+if ($Global:PERFORM_CREATE_NSG -eq $true) { $Global:performCreateNSG = 0 } else { $Global:performCreateNSG = 1 }
+# $Global:PERFORM_CREATE_NSG; $Global:performCreateNSG
+#
+################################################################################
+
+
+################################################################################
+# Setup Perform or not perform Creation of NSG Rule
+#
+$Global:PERFORM_CREATE_RULE = $false
+if ($Global:PERFORM_CREATE_RULE -eq $true) { $Global:performCreateRule = 0; $thisColor = "Green" } else { $Global:performCreateRule = 1; $thisColor = "Red" }
+Write-ColorOutput "$thisColor" "BOBFIX:  Creation of Network Security Group RULEs [GREEN:ENABLED / RED:DISABLED]"
+# $Global:PERFORM_CREATE_RULE; $Global:performCreateRule
+#
+################################################################################
+
+
+################################################################################
+# Setup Base Get-NSG command
+#
 $Global:GET_NSG_BASE = "Get-AzureNetworkSecurityGroup -Name $NSG_NAME"
 #
 ################################################################################
+
+
+Set-PSDebug -trace 0 -strict
 
 
 ################################################################################
@@ -122,7 +166,7 @@ function Create_NSG()
 Set-PSDebug -trace 1 -strict
     # Create the NSG for the Web subnet if it does not already exist
     $createCommand = "New-AzureNetworkSecurityGroup -Name $NSG_NAME -Location $LOCATION -Label 'Network Security Group for all subnets in West US'"
-    if ($PERFORM_CREATE -eq $true) {
+    if ($PERFORM_CREATE_NSG -eq $true) {
 	Write-ColorOutput "Green" ">> EXECUTE: `$Global:currentNSG = Invoke-Expression $thisCommand"
 	$thisRc = $Global:ecRc
 	$Global:currentNSG = Invoke-Expression $thisCommand; $thisRc = $?
@@ -170,12 +214,23 @@ function Setup_NSG()
 #
 function Create_NSG_Rule($cnrName)
 {
-Set-PSDebug -trace 1 -strict
+    $cnrPortNumber = $INTERNET_PORT_NUMBERS.$Global:sourcePortType
+$cnrPortNumber
 
-    $thisCommand = "Set-AzureNetworkSecurityRule -NetworkSecurityGroup "+'$Global:currentNSG'+" -Name '$thisName' -Type Inbound -Priority $priorityNumber -Action Allow -SourceAddressPrefix '$sourceAddress' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '*' -Protocol 'TCP'"
-    Execute_Command 1 "$thisCommand"; $thisRc = $?
+    $thisCommand = "Set-AzureNetworkSecurityRule -NetworkSecurityGroup "+'$Global:currentNSG'+" -Name '$Global:thisNSGRuleName' -Type Inbound -Priority $Global:thisPriorityNumber -Action Allow -SourceAddressPrefix '$sourceAddress' -SourcePortRange '*' -DestinationAddressPrefix '*' -DestinationPortRange '$cnrPortNumber' -Protocol 'TCP'"
+    Execute_Command $Global:performCreateRule "$thisCommand"; $thisRc = $?
+    $Global:NSG_DETAILED = $Global:ecOutput
+    Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-ANSR]: [$thisRc|$Global:ecRc]"
+    if ($PERFORM_CREATE_RULE ) {
+	if ($thisRc -eq $false -or $Global:ecRc -eq $false -or $Global:NSG_DETAILED -eq $null ) {
+	    Write-ColorOutput "Red" "BOBFIX-NOT_CREATED[S-ANSR] FAILED"
+	    Write-ColorOutput "Red" "BOBFIX-NOT_CREATED[S-ANSR]: [$Global:ecVariableError]"
+	}
+	else {
+	    Write-ColorOutput-SingleQ "Cyan" 'BOBFIX-OUTPUT[S-ANSGR-Detailed]: $Global:NSG_DETAILED'
+	}
+    }
 
-Set-PSDebug -trace 0 -strict;Exit 1
 }
 #
 ################################################################################
@@ -186,22 +241,26 @@ Set-PSDebug -trace 0 -strict;Exit 1
 #
 function Setup_NSG_Rules($snrName)
 {
-# Set-PSDebug -trace 1 -strict
 
-    $Global:ruleCount = 1
-    foreach($sourceAddress in $SOURCE_ADDRESSES) {
-	$priorityNumber = $PRIORITY_START + $Global:ruleCount
-	$thisName = "Internet_Inbound_Allow_$Global:ruleCount"
+    foreach($Global:sourcePortType in $Global:INTERNET_PORT_NAMES) {
+	if($Global:sourcePortType -ne "STAR") { Write-ColorOutput "Red" "BOBFIX-CHANGE:  Need to handle all required ports: Skipping[$Global:sourcePortType]"; continue }
+	$snrRuleCount = 1
+	foreach($sourceAddress in $SOURCE_ADDRESSES) {
+	    $Global:thisPriorityNumber = $PRIORITY_START.STAR + $snrRuleCount
+	    $snrPrintRuleCount = $snrRuleCount.TOString("00")
+	    $Global:thisNSGRuleName = "$Global:INTERNET_PREFIX-$Global:sourcePortType-$snrPrintRuleCount"
 
-	$testEntry = $Global:NSG_DETAILED.Rules | where Name -match $thisName
-	$thisRc = $?
-#	Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-ANSG]: [$thisRc|$Global:ecRc]"
-	if ($thisRc -eq $false -or $testEntry -eq $null ) {
-	    Create_NSG_Rule "$cnrName"
+	    $testEntry = $Global:NSG_DETAILED.Rules | where Name -match $Global:thisNSGRuleName
+	    $thisRc = $?
+#	    Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-ANSG]: [$thisRc|$Global:ecRc]"
+	    if ($thisRc -eq $false -or $testEntry -eq $null ) {
+		Create_NSG_Rule "$cnrName"
+if ($Global:PERFORM_CREATE_RULE) { Set-PSDebug -trace 0 -strict;Exit 1 }
+	    }
+#	    else { Write-ColorOutput-SingleQ "Yellow" 'BOBFIX-OUTPUT[NSG-Rule-Exists]:  $testEntry' }
+
+	    $snrRuleCount++
 	}
-#	else { Write-ColorOutput-SingleQ "Yellow" 'BOBFIX-OUTPUT[NSG-Rule-Exists]:  $testEntry' }
-
-	$Global:ruleCount++
    }
 
 }
