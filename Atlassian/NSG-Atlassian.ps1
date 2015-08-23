@@ -45,7 +45,7 @@ $Global:SUBNET_NAMES += 'WBA-ATL-MGT-APP'
 $Global:SUBNET_NAMES += 'WBA-ATL-MGT-DB'
 $Global:SUBNET_NAMES += 'WBA-ATL-MGT-INF'
 $Global:SUBNET_NAMES += 'WBA-ATL-MGT-RES2'
-$Global:SUBNET_NAMES += 'Gateway'
+# $Global:SUBNET_NAMES += 'Gateway'
 Write-ColorOutput "Red" "BOBFIX-CHANGE:  Need to handle all subnets"
 
 
@@ -223,7 +223,7 @@ function Setup_NSG()
 	    Get_NSG_Detailed
 	}
 	else {
-	    Write-ColorOutput "Yellow" ">> TESTING: `$Global:currentNSG = Invoke-Expression $thisCommand"
+	    Write-ColorOutput "Red" ">> FAILED: Create_NSG [$Global:NSG_NAME]"
 	}
     }
     else {
@@ -361,7 +361,7 @@ function Setup_NSG_Subnets()
 		Get_NSG_Subnet_Detailed
 	    }
 	    else {
-		Write-ColorOutput "Yellow" ">> TESTING: `$Global:currentNSG = Invoke-Expression $thisCommand"
+		Write-ColorOutput "Red" ">> FAILED: Create_NSG_Subnet [$Global:subnetName]"
 	    }
 # Set-PSDebug -trace 0 -strict;Exit 1
 	}
