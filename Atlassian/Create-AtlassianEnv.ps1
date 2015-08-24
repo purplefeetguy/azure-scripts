@@ -573,6 +573,8 @@ $rdpEndpointPort = 57201
 $EndpointNames = $rdpEndpointName, $sshEndpointName
 $EndpointPorts = $rdpEndpointPort, $sshEndpointPort
 #---
+$ENDPOINT_IDLE_TIMEOUT = 30
+#---
 $domainJoin = 'devwalgreenco.net'
 $domain = 'walgreenco'
 #---
@@ -889,7 +891,7 @@ Write-ColorOutput "Magenta" "BOBFIX-RETURN[N-VMC]: [$thisRc|$Global:ecRc]"
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[A-APC]: [$thisRc|$Global:ecRc]"
 	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
 
-	$thisCommand = "Set-AzureEndpoint -Name $thisEndpointName -vm "+'$vm1'+" -PublicPort $thisEndpointPort"
+	$thisCommand = "Set-AzureEndpoint -Name $thisEndpointName -vm "+'$vm1'+" -IdleTimeoutInMinutes $ENDPOINT_IDLE_TIMEOUT -PublicPort $thisEndpointPort"
 	Execute_Command 0 "$thisCommand"; $thisRc = $?
 Write-ColorOutput "Magenta" "BOBFIX-RETURN[S-AE]: [$thisRc|$Global:ecRc]"
 	if ($thisRc -eq $false -or $Global:ecRc -eq $false) { Exit }
