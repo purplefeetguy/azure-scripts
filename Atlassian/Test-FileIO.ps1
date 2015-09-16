@@ -23,15 +23,6 @@
 . "../../PS_Funcs/PS_Funcs_Std.ps1"
 
 
-Function Load-Variables() {
-    Get-Content $SOURCE_FILE | Foreach-Object {
-	$var = $_.Split('=')
-	New-Variable -Name $var[0] -Scope Script -Value $var[1]
-	$Global:Input_Array += @{ $var[0] = $var[1] }
-    }
-}
-
-
 function Display_Info()
 {
 Set-PSDebug -trace 1 -strict 
@@ -54,7 +45,7 @@ $SOURCE_FILE = ".\DATA\Atlassian.configuration"
 
 $INPUT_DATA = Get-Content $SOURCE_FILE
 
-Load-Variables
+Load-Variables $SOURCE_FILE
 Display_Info
 
 
